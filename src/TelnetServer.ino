@@ -79,20 +79,34 @@ void telnet_loop() {
   }
 
   while(serverClient.available()) {  // get data from Client
-    serverClient.print((unsigned)serverClient.read(), HEX);
+    unsigned ch = serverClient.read();
+    serverClient.print(ch, HEX);
     serverClient.print(" ");
   }
 
-  if (millis() - startTime > 2000) { // run every 2000 ms
-    startTime = millis();
+//  if (serverClient && serverClient.connected()) {  // send data to Client
+//    while (Serial.available()) {
+//      unsigned ch = Serial.read();
+//      // FIXME: Should only line-break between packets.
+//      // FIXME: calculate checksum and report validity
+//      serverClient.print(ch, HEX);
+//      if (ch == 0x7E)
+//        serverClient.println();
+//      else
+//        serverClient.print("-");
+//    }
+//  }
 
-    if (serverClient && serverClient.connected()) {  // send data to Client
-      serverClient.print("Telnet Test, millis: ");
-      serverClient.println(millis());
-      serverClient.print("Free Heap RAM: ");
-      serverClient.println(ESP.getFreeHeap());
-    }
-  }
-  delay(10);  // to avoid strange characters left in buffer
+//  if (millis() - startTime > 2000) { // run every 2000 ms
+//    startTime = millis();
+//
+//    if (serverClient && serverClient.connected()) {  // send data to Client
+//      serverClient.print("Telnet Test, millis: ");
+//      serverClient.println(millis());
+//      serverClient.print("Free Heap RAM: ");
+//      serverClient.println(ESP.getFreeHeap());
+//    }
+//  }
+//  delay(10);  // to avoid strange characters left in buffer
 
 }

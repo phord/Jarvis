@@ -7,27 +7,25 @@
 
 #include "local-config.h"
 #include "AdafruitIO_WiFi.h"
-
-AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
-
 const int LED_PIN = LED_BUILTIN;
 
+AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
 AdafruitIO_Group *jarvis = io.group("jarvis");
+
+
 
 // FIXME: Move to flasher.h
 void flash(unsigned count = 0, float secs = 0.3);
 void momentary(unsigned preset);
 
+void jarvis_begin();
+void jarvis_run();
+void jarvis_goto(int p);
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
-  Serial.begin(9600);
+  jarvis_begin();
 
-  // Enable this for TxRx with Jarvis
-  // Serial.begin(9600);
-  while(! Serial);
-
-//  Serial.println("Jarvis start");
   io.connect();
 
   jarvis->onMessage("preset", handlePreset);
@@ -88,6 +86,9 @@ void loop() {
   // Run the AdafruitIO Service
   io.run();
 
+  // run the Jarvis desk interface
+  jarvis_run();
+
   telnet_loop();
 
   // Run the OTA Updater Service
@@ -95,28 +96,33 @@ void loop() {
 
 }
 
-// Handle messages from AdafruitIO
-void handleMessage(AdafruitIO_Data *data)
-{
-//  Serial.print("received <- ");
-//  Serial.print(data->value());
-//  Serial.print(" from ");
-//  Serial.println(data->feedName());
-//  Serial.println(data->toCSV());
-}
+    // Handle messages from AdafruitIO
+    void handleMessage(AdafruitIO_Data *data)
+    {
+    //  Serial.print("received <- ");
+    //  Serial.print(data->value());
+    //  Serial.print(" from ");
+    //  Serial.println(data->feedName());
+    //  Serial.println(data->toCSV());
+    }
 
+extern WiFiClient serverClient;
 // Handle messages from AdafruitIO
 void handlePreset(AdafruitIO_Data *data)
 {
-//  Serial.print("received <- ");
-//  Serial.print(data->value());
-//  Serial.print(" from ");
-//  Serial.println(data->feedName());
-//  Serial.println(data->toCSV());
+  if (serverClient && serverClient.connected()) {  // send data to Client
+    serverClient.print(">MSG:");
+
+    serverClient.print(" ");
+    serverClient.print(data->feedName());
+    serverClient.print("=");
+    serverClient.print(data->toString());
+    serverClient.println();
+  }
 
   auto preset = data->toInt();
   flash(preset, 0.25);
 
   // Press the button
-  momentary(preset);
+  jarvis_goto(preset);
 }
