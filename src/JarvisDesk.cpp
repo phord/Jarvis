@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include "AdafruitIO_WiFi.h"
+#include <SoftwareSerial.h>
 
 // Pinouts for ESP8266 Oak (which uses these "P" numbers)
 #define HS0   P9
@@ -22,6 +23,9 @@ enum JarvisMessage {
   BUTTON_MEM = 9
   // WIP: Add serial comms messages
 };
+
+SoftwareSerial deskSerial(P3);
+SoftwareSerial hsSerial(P4);
 
 struct one_shot_timer {
   void reset(unsigned long t_ = 1000) { t = millis() + t_; }
@@ -56,8 +60,10 @@ struct one_shot_timer {
 class JarvisDesk {
   public:
   void begin() {
-    Serial.begin(9600);
-    while(! Serial);
+    deskSerial.begin(9600);
+    while(! deskSerial);
+    hsSerial.begin(9600);
+    while(! hsSerial);
   }
 
   void run() {
@@ -188,24 +194,81 @@ private:
   #define BUFSIZE       20
   #define CONTROLLER    0xF2
   #define HANDSET       0xF1
+  #define EOM           0x7E
 
-  unsigned char tail = 0;
-  unsigned char serial_buffer[BUFSIZE];
+  struct ring_buffer {
+    unsigned char tail = 0;
+    unsigned char serial_buffer[BUFSIZE];
+    unsigned char addr = 0;
 
-  unsigned char prev(unsigned char p) {
-      return (p-1 + BUFSIZE) % BUFSIZE;
-  }
+    ring_buffer(unsigned char address) : addr(address) {}
 
-  unsigned char next(unsigned char p) {
-      return (p+1) % BUFSIZE;
-  }
+    unsigned char prev(unsigned char p) {
+        return (p-1 + BUFSIZE) % BUFSIZE;
+    }
 
-  unsigned char get(unsigned char &p) {
-      if (p == tail) return 0;
-      unsigned char ch = serial_buffer[p];
-      p = next(p);
-      return ch;
-  }
+    unsigned char next(unsigned char p) {
+        return (p+1) % BUFSIZE;
+    }
+
+    unsigned char get(unsigned char &p) {
+        if (p == tail) return 0;
+        unsigned char ch = serial_buffer[p];
+        p = next(p);
+        return ch;
+    }
+
+    struct payload {
+      unsigned char head = 0, tail = 0;
+      enum ERR {NONE = 0, WAITING, CHKSUM, eUNDERFLOW};
+      ERR err = NONE;
+
+      payload(unsigned char start, unsigned char end) : head(start), tail(end) {}
+      payload(ERR e) : err(e) {}
+    };
+
+    payload put(unsigned char ch) {
+      serial_buffer[tail] = ch;
+
+      payload p = {payload::ERR::WAITING};
+      if (ch == EOM)
+        p = parse_packet();
+
+      tail = next(tail);
+      return p;
+    }
+
+    payload parse_packet() {
+      unsigned char head = prev(tail);
+
+      //-- Header: starts with controller address 2x
+      while ((head = prev(head)) != tail) {
+        if (serial_buffer[head] == addr)
+          if (serial_buffer[next(head)] == addr)
+            break;
+      }
+
+      //-- Underflow
+      if (head == tail) return {payload::ERR::eUNDERFLOW};
+
+      //-- Payload
+      unsigned char p = head = next(next(head));
+      unsigned char e = prev(tail);        // ptr to chksum byte
+      unsigned char chksum = 0;
+      while (p != e) {
+        chksum += get(p);
+      }
+
+      //-- Bad checksum
+      if (chksum != get(p)) return {payload::ERR::CHKSUM};
+
+      return {head, e};
+    }
+
+  };
+
+  ring_buffer desk = {CONTROLLER};
+  ring_buffer hs = {HANDSET};
 
   void set_preset(unsigned char p) {
     if (preset == p) return;
@@ -235,100 +298,75 @@ private:
     // }
   }
 
-  bool error(const char * msg) {
-    if (serverClient && serverClient.connected())
-        serverClient.println(msg);
-    return false;
+  bool error(const ring_buffer::payload &pb) {
+    if (serverClient && serverClient.connected()) {
+      const char * msg = nullptr;
+      if (pb.err == ring_buffer::payload::ERR::eUNDERFLOW)   msg = "UNDERFLOW";
+      else if (pb.err == ring_buffer::payload::ERR::CHKSUM) msg = "CHKSUM";
+      if (msg) serverClient.println(msg);
+    }
+    return !!pb.err;
   }
 
   // decode the packet from head..tail and verify checksum
-  bool parse_packet() {
-    unsigned char head = prev(tail);
-
-    //-- Header: starts with controller address 2x
-    while ((head = prev(head)) != tail) {
-      if (serial_buffer[head] == CONTROLLER)
-        if (serial_buffer[next(head)] == CONTROLLER)
-          break;
-    }
-
-    //-- Underflow
-    if (head == tail) return error("UNDERFLOW");
-
-    //-- Payload
-    unsigned char p = next(next(head));
-    unsigned char e = prev(tail);        // ptr to chksum byte
-    unsigned char chksum = 0;
-    while (p != e) {
-      chksum += get(p);
-    }
-
-    //-- Bad checksum
-    if (chksum != get(p)) return error("CHKSUM");
-
-    // Payload = [head+2..tail-2]
+  void decode_desk(ring_buffer::payload const &pb) {
+    unsigned char p;
 
     //-- Height announcement
     //   F2 F2 1 3 HI LO 7 CHK
     //           =       =
-    p = next(next(head));
-    if (get(p) == 0x01 && get(p) == 0x03) {
+    p = pb.head;
+    if (desk.get(p) == 0x01 && desk.get(p) == 0x03) {
       // Not sure what 3 and 7 are for.  Units?
-      unsigned int h = get(p) * 0x100;
-      h += get(p);
+      unsigned int h = desk.get(p) * 0x100;
+      h += desk.get(p);
       set_height(h);
-      return true;
+      return;
     }
 
 
     //-- Move to preset position
     //   F2-F2-92-1-10-A3-7E
     //              ==
-    p = next(next(head));
-    if (get(p) == 0x92 && get(p) == 0x01) {
+    p = pb.head;
+    if (desk.get(p) == 0x92 && desk.get(p) == 0x01) {
       unsigned char ps = 0;
-      unsigned char ch = get(p);
+      unsigned char ch = desk.get(p);
       switch (ch) {
         case 0x04: ps = 1; break;
         case 0x08: ps = 2; break;
         case 0x10: ps = 3; break;
-        case 0x20: ps = 4; break; // assumed.  Haven't seen it
+        case 0x20: ps = 4; break;
         default: break; // error?
       }
       if (ps) {
         set_preset(ps);
-        return true;
+        return;
       }
     }
 
     //-- Unknown codes
     if (serverClient && serverClient.connected()) {  // send data to Client
-      unsigned char p = head;
+      p = pb.head;
       serverClient.print("Unknown: ");
-      while (p != tail) {
-        unsigned ch = get(p);
+      while (p != pb.tail) {
+        unsigned ch = desk.get(p);
         serverClient.print(ch, HEX);
-        if (p == tail)
+        if (p == pb.tail)
           serverClient.println();
         else
           serverClient.print("-");
       }
     }
-
-
-    return true;
   }
 
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
-    while (Serial.available()) {
-      unsigned char ch = serial_buffer[tail] = Serial.read();
-
-      if (ch == 0x7E)
-        parse_packet();
-
-      tail = next(tail);
+    while (deskSerial.available()) {
+      auto p = desk.put(deskSerial.read());
+      if (!error(p))
+        decode_desk(p);
     }
   }
 };
