@@ -157,7 +157,7 @@ private:
     }
 
     io_pending = true;
-    jarvis_sub->set(field, value);
+    jarvis->set(field, value);
 
     // Send right away, if possible.
     io_send();
@@ -168,7 +168,7 @@ private:
       if (serverClient && serverClient.connected()) {
         serverClient.print("save:");
 
-        auto data = jarvis_sub->data;
+        auto data = jarvis->data;
         while (data) {
           serverClient.print(" ");
           serverClient.print(data->feedName());
@@ -178,7 +178,7 @@ private:
         }
         serverClient.println();
       }
-      jarvis_sub->save();
+      jarvis->save();
       io_pending = false;
       io_timer.reset(2000);
       return true;
