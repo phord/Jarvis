@@ -75,11 +75,22 @@ class JarvisDesk {
     decode_serial();
 
     //-- Manage any pending preset presses
-    if (pending_preset && !is_moving()) {
-      latch(pending_preset);
-      latch_timer.reset();
-      pending_preset = 0;
+    if (pending_preset) {
+      if (is_moving()) {
+        if (!pending_stop)  {
+          // Press the memory once to try to stop our motion
+          latch_pin(HS0);
+          latch_pin(HS3);
+          pending_stop = true;
+          latch_timer.reset(30);
+        }
+      } else {
+        latch(pending_preset);
+        latch_timer.reset();
+        pending_preset = 0;
+      }
     }
+    else pending_stop = false;
 
     if (latch_timer.trigger()) {
       unlatch();
@@ -125,6 +136,7 @@ private:
 
   // The preset we are commanded to go to next, if any
   unsigned char pending_preset = 0;
+  bool pending_stop = false;
 
   void latch_pin(int pin) {
     pinMode(pin, OUTPUT);
@@ -291,7 +303,7 @@ private:
   void set_height(unsigned int h) {
     if (height == h) return;
     height = h;
-    height_changed.reset(2000);
+    height_changed.reset(700);
 
     // publish update to AdafruitIO
     io_set("height", height);
