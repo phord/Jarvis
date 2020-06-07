@@ -96,10 +96,10 @@ class JarvisDesk {
 
   JarvisMessage getMessage() {
     unsigned btn =
-      digitalRead(HS0) * 1 +
-      digitalRead(HS1) * 2 +
-      digitalRead(HS2) * 4 +
-      digitalRead(HS3) * 8;
+      !digitalRead(HS0) * 1 +
+      !digitalRead(HS1) * 2 +
+      !digitalRead(HS2) * 4;
+      // + !digitalRead(HS3) * 8;  Not wired in yet
 
     return static_cast<JarvisMessage>(btn);
   }
