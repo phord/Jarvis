@@ -476,5 +476,7 @@ void jarvis_report() {
       serverClient.println(Jarvis.height);
       serverClient.print("Preset: ");
       serverClient.println(Jarvis.preset);
+      serverClient.print("Keys: ");
+      serverClient.println(Jarvis.getMessage());
   }
 }
