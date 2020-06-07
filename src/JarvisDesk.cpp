@@ -302,6 +302,15 @@ private:
 
   void set_height(unsigned int h) {
     if (height == h) return;
+    if (h == 9999 || h == 0) {
+      if (serverClient && serverClient.connected()) {
+        serverClient.print("Fake-height: ");
+        serverClient.print(h);
+        serverClient.println("mm");
+      }
+      return;
+    }
+
     height = h;
     height_changed.reset(700);
 
