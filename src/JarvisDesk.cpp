@@ -11,7 +11,7 @@
 
 extern WiFiClient serverClient;
 extern AdafruitIO_WiFi io;
-extern AdafruitIO_Group *jarvis;
+extern AdafruitIO_Group *jarvis_sub;
 
 enum JarvisMessage {
   BUTTON_DOWN = 1,
@@ -60,12 +60,14 @@ struct one_shot_timer {
 class JarvisDesk {
   public:
   void begin() {
+    jarvis = io.group("jarvis");
     deskSerial.begin(9600);
     hsSerial.begin(9600);
 
     // Disable pullups turned on my espSoftwareSerial library
     pinMode(P3, INPUT);
     pinMode(P4, INPUT);
+    jarvis->get();
   }
 
   void run() {
@@ -119,6 +121,7 @@ class JarvisDesk {
   bool io_pending = false;
 
 private:
+  AdafruitIO_Group *jarvis = nullptr;
 
   // The preset we are commanded to go to next, if any
   unsigned char pending_preset = 0;
@@ -142,7 +145,7 @@ private:
     }
 
     io_pending = true;
-    jarvis->set(field, value);
+    jarvis_sub->set(field, value);
 
     // Send right away, if possible.
     io_send();
@@ -153,7 +156,7 @@ private:
       if (serverClient && serverClient.connected()) {
         serverClient.print("save:");
 
-        auto data = jarvis->data;
+        auto data = jarvis_sub->data;
         while (data) {
           serverClient.print(" ");
           serverClient.print(data->feedName());
@@ -163,7 +166,7 @@ private:
         }
         serverClient.println();
       }
-      jarvis->save();
+      jarvis_sub->save();
       io_pending = false;
       io_timer.reset(2000);
       return true;
