@@ -282,6 +282,20 @@ private:
       return {head, e};
     }
 
+    void dump_all() {
+      if (serverClient && serverClient.connected()) {
+        auto p = next(tail);
+        serverClient.print("DUMP: ");
+        while (p != tail) {
+          unsigned ch = get(p);
+          serverClient.print(ch, HEX);
+          if (p == tail)
+            serverClient.println();
+          else
+            serverClient.print("-");
+        }
+      }
+    }
   };
 
   ring_buffer desk = {CONTROLLER};
@@ -443,6 +457,8 @@ private:
       auto p = desk.put(ch);
       if (!error(p))
         decode_desk(p);
+      else if (p.err == ring_buffer::payload::ERR::CHKSUM)
+        desk.dump_all();
 
       // // HACK: where's my serials?
       // if (serverClient && serverClient.connected()) {
@@ -458,6 +474,8 @@ private:
       auto p = hs.put(ch);
       if (!error(p))
         decode_handset(p);
+      else if (p.err == ring_buffer::payload::ERR::CHKSUM)
+        hs.dump_all();
 
       // // HACK: where's my serials?
       // if (serverClient && serverClient.connected()) {
