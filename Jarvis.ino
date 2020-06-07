@@ -24,9 +24,10 @@ void jarvis_goto(int p);
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
-  jarvis_begin();
 
   io.connect();
+
+  jarvis_begin();
 
   jarvis_sub->onMessage("preset", handlePreset);
   jarvis_sub->onMessage(handleMessage);
