@@ -47,7 +47,7 @@ void telnet_setup() {
 //    // signal WiFi connect
 //    digitalWrite(LED_BUILTIN, LOW);
 //    delay(300); // ms
-//    digitalWrite(LED_BUILTIN, HIGH);      
+//    digitalWrite(LED_BUILTIN, HIGH);
 //  } else {
 //    Serial.println("");
 //    Serial.println("WiFi connect failed, push RESET button.");
@@ -62,6 +62,7 @@ void telnet_setup() {
 //  Serial.println(ESP.getFreeHeap());
 } // setup()
 
+void jarvis_report();
 
 void telnet_loop() {
   // look for Client connect trial
@@ -74,7 +75,7 @@ void telnet_loop() {
       serverClient = telnetServer.available();
 //      Serial.println("New Telnet client");
       serverClient.println("Connected to Jarvis");
-      serverClient.flush();  // clear input buffer, else you get strange characters 
+      jarvis_report();
     }
   }
 

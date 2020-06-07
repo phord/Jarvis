@@ -11,7 +11,7 @@
 
 extern WiFiClient serverClient;
 extern AdafruitIO_WiFi io;
-extern AdafruitIO_Group *jarvis;
+extern AdafruitIO_Group *jarvis_sub;
 
 enum JarvisMessage {
   BUTTON_DOWN = 1,
@@ -60,10 +60,14 @@ struct one_shot_timer {
 class JarvisDesk {
   public:
   void begin() {
+    jarvis = io.group("jarvis");
     deskSerial.begin(9600);
-    while(! deskSerial);
     hsSerial.begin(9600);
-    while(! hsSerial);
+
+    // Disable pullups turned on my espSoftwareSerial library
+    pinMode(P3, INPUT);
+    pinMode(P4, INPUT);
+    jarvis->get();
   }
 
   void run() {
@@ -117,6 +121,7 @@ class JarvisDesk {
   bool io_pending = false;
 
 private:
+  AdafruitIO_Group *jarvis = nullptr;
 
   // The preset we are commanded to go to next, if any
   unsigned char pending_preset = 0;
@@ -132,7 +137,7 @@ private:
   }
 
   void io_set(const char * field, unsigned long value) {
-    if (serverClient && serverClient.connected()) {  // send data to Client
+    if (serverClient && serverClient.connected()) {
       serverClient.print("io_set: ");
       serverClient.print(field);
       serverClient.print("=");
@@ -140,7 +145,7 @@ private:
     }
 
     io_pending = true;
-    jarvis->set(field, value);
+    jarvis_sub->set(field, value);
 
     // Send right away, if possible.
     io_send();
@@ -148,10 +153,10 @@ private:
 
   bool io_send() {
     if (io_pending && io_timer.expired()) {
-      if (serverClient && serverClient.connected()) {  // send data to Client
+      if (serverClient && serverClient.connected()) {
         serverClient.print("save:");
 
-        auto data = jarvis->data;
+        auto data = jarvis_sub->data;
         while (data) {
           serverClient.print(" ");
           serverClient.print(data->feedName());
@@ -161,7 +166,7 @@ private:
         }
         serverClient.println();
       }
-      jarvis->save();
+      jarvis_sub->save();
       io_pending = false;
       io_timer.reset(2000);
       return true;
@@ -346,9 +351,9 @@ private:
     }
 
     //-- Unknown codes
-    if (serverClient && serverClient.connected()) {  // send data to Client
+    if (serverClient && serverClient.connected()) {
       p = pb.head;
-      serverClient.print("Unknown: ");
+      serverClient.print("Desk: ");
       while (p != pb.tail) {
         unsigned ch = desk.get(p);
         serverClient.print(ch, HEX);
@@ -360,14 +365,88 @@ private:
     }
   }
 
+  // decode the packet from head..tail and verify checksum
+  void decode_handset(ring_buffer::payload const &pb) {
+    unsigned char p;
+
+    //-- Program preset
+    //   F1 F1 26 0 CHK
+    //         == =
+    // Note these commands nearly match the binary patterns that pset buttons 1-4 send
+    // on the HS0..HS3 signal lines.  Surely not a coincidence?  Are more presets possible?
+    enum {
+      MSET_1 = 0x03,
+      MSET_2 = 0x04,
+      MSET_3 = 0x25,
+      MSET_4 = 0x26
+    };
+    p = pb.head;
+    auto cmd = hs.get(p);
+    if ((cmd == MSET_1 || cmd == MSET_2 || cmd == MSET_3 || cmd == MSET_4) && hs.get(p) == 0x00) {
+      // Convert 3..6 => 1..4
+      auto memset = (cmd & 0x0F) - 2;
+      // Record program setting if we know the height
+      if (height) {
+        char buf[20];
+        sprintf(buf, "Prog_%d", memset);
+        io_set(buf, height);
+      }
+      if (serverClient && serverClient.connected()) {
+        serverClient.print("Memory-set: ");
+        serverClient.print(memset);
+        serverClient.print(" ");
+        serverClient.println(height);
+      }
+      return;
+    }
+
+    //-- Unknown codes
+    if (serverClient && serverClient.connected()) {
+      p = pb.head;
+      serverClient.print("Handset: ");
+      while (p != pb.tail) {
+        unsigned ch = hs.get(p);
+        serverClient.print(ch, HEX);
+        if (p == pb.tail)
+          serverClient.println();
+        else
+          serverClient.print("-");
+      }
+    }
+  }
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
     while (deskSerial.available()) {
-      auto p = desk.put(deskSerial.read());
+      auto ch = deskSerial.read();
+      auto p = desk.put(ch);
       if (!error(p))
         decode_desk(p);
+
+      // // HACK: where's my serials?
+      // if (serverClient && serverClient.connected()) {
+      //   serverClient.print(ch, HEX);
+      //   serverClient.print("-");
+      //   if (ch == 0x7E)
+      //     serverClient.println();
+      // }
     }
+
+    while (hsSerial.available()) {
+      auto ch = hsSerial.read();
+      auto p = hs.put(ch);
+      if (!error(p))
+        decode_handset(p);
+
+      // // HACK: where's my serials?
+      // if (serverClient && serverClient.connected()) {
+      //   serverClient.print(ch, HEX);
+      //   serverClient.print("-");
+      //   if (ch == 0x7E)
+      //     serverClient.println();
+      // }
+    }
+
   }
 };
 
@@ -389,4 +468,13 @@ void jarvis_run() {
 
 void jarvis_goto(int p) {
   Jarvis.goto_preset(p);
+}
+
+void jarvis_report() {
+  if (serverClient && serverClient.connected()) {
+      serverClient.print("Height: ");
+      serverClient.println(Jarvis.height);
+      serverClient.print("Preset: ");
+      serverClient.println(Jarvis.preset);
+  }
 }

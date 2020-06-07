@@ -10,7 +10,7 @@
 const int LED_PIN = LED_BUILTIN;
 
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
-AdafruitIO_Group *jarvis = io.group("jarvis");
+AdafruitIO_Group *jarvis_sub = io.group("jarvis");
 
 
 
@@ -24,12 +24,15 @@ void jarvis_goto(int p);
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
-  jarvis_begin();
+
+  // WiFi.setHostname("jarvis");
 
   io.connect();
 
-  jarvis->onMessage("preset", handlePreset);
-  jarvis->onMessage(handleMessage);
+  jarvis_begin();
+
+  jarvis_sub->onMessage("preset", handlePreset);
+  jarvis_sub->onMessage(handleMessage);
 
   flash(0, 0.5);
   while(io.status() < AIO_CONNECTED) {
@@ -78,7 +81,7 @@ void setup() {
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
   telnet_setup();
-  jarvis->get();
+  jarvis_sub->get();
 
 }
 
