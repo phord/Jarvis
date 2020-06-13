@@ -22,6 +22,9 @@ void jarvis_begin();
 void jarvis_run();
 void jarvis_goto(int p);
 
+void telnet_setup();
+void telnet_loop();
+
 void setup() {
   pinMode(LED_PIN, OUTPUT);
 
