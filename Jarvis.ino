@@ -6,21 +6,20 @@
 #include <ArduinoOTA.h>
 
 #include "local-config.h"
+#include "src/JarvisDesk.h"
+
 #include "AdafruitIO_WiFi.h"
 const int LED_PIN = LED_BUILTIN;
 
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
 AdafruitIO_Group *jarvis_sub = io.group("jarvis");
 
+JarvisDesk Jarvis;
 
 
 // FIXME: Move to flasher.h
 void flash(unsigned count = 0, float secs = 0.3);
 void momentary(unsigned preset);
-
-void jarvis_begin();
-void jarvis_run();
-void jarvis_goto(int p);
 
 void telnet_setup();
 void telnet_loop();
@@ -30,7 +29,7 @@ void setup() {
 
   io.connect();
 
-  jarvis_begin();
+  Jarvis.begin();
 
   jarvis_sub->onMessage("preset", handlePreset);
   jarvis_sub->onMessage(handleMessage);
@@ -91,7 +90,7 @@ void loop() {
   io.run();
 
   // run the Jarvis desk interface
-  jarvis_run();
+  Jarvis.run();
 
   telnet_loop();
 
@@ -128,5 +127,5 @@ void handlePreset(AdafruitIO_Data *data)
   flash(preset, 0.25);
 
   // Press the button
-  jarvis_goto(preset);
+  Jarvis.goto_preset(preset);
 }

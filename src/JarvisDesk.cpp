@@ -3,6 +3,8 @@
 #include "AdafruitIO_WiFi.h"
 #include <SoftwareSerial.h>
 
+#include "JarvisDesk.h"
+
 // Pinouts for ESP8266 Oak (which uses these "P" numbers)
 #define HS0   P9
 #define HS1   P8
@@ -72,7 +74,7 @@ struct Util {
 
 };
 
-class JarvisDesk {
+class JarvisDesk_impl {
   public:
   void begin() {
     jarvis = io.group("jarvis");
@@ -502,33 +504,33 @@ private:
   }
 };
 
-// FIXME: Make this interface work like a library?
-JarvisDesk Jarvis;
-
-void jarvis_begin();
-void jarvis_run();
-void jarvis_goto(int p);
-//
-
-void jarvis_begin() {
-  Jarvis.begin();
-}
-
-void jarvis_run() {
-  Jarvis.run();
-}
-
-void jarvis_goto(int p) {
-  Jarvis.goto_preset(p);
-}
-
 void jarvis_report() {
+}
+
+//-- JarvisDesk API interface
+JarvisDesk::JarvisDesk() {
+  jarvis = new JarvisDesk_impl();
+}
+
+void JarvisDesk::begin() {
+  jarvis->begin();
+}
+
+void JarvisDesk::run() {
+  jarvis->run();
+}
+
+void JarvisDesk::report() {
   if (serverClient && serverClient.connected()) {
-      serverClient.print("Height: ");
-      serverClient.println(Jarvis.height);
-      serverClient.print("Preset: ");
-      serverClient.println(Jarvis.preset);
-      serverClient.print("Keys: ");
-      serverClient.println(Jarvis.getMessage());
+    serverClient.print("Height: ");
+    serverClient.println(jarvis->height);
+    serverClient.print("Preset: ");
+    serverClient.println(jarvis->preset);
+    serverClient.print("Keys: ");
+    serverClient.println(jarvis->getMessage());
   }
+}
+
+void JarvisDesk::goto_preset(int p) {
+  jarvis->goto_preset(p);
 }
