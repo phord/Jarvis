@@ -56,6 +56,21 @@ struct one_shot_timer {
   unsigned long t = 0;
 };
 
+struct Util {
+  static unsigned int getword(unsigned char a, unsigned char b) {
+    return (a << 8) + b;
+  }
+
+  static unsigned to_mm(unsigned h) {
+    if (h < 600) {
+      // Height in inches*10; convert to mm
+      h *= 254;  // convert to mm*100
+      h += 50;   // round up to nearest whole mm
+      h /= 100;  // convert to mm
+    }
+  }
+
+};
 
 class JarvisDesk {
   public:
@@ -315,16 +330,16 @@ private:
   }
 
   void set_height(unsigned int h) {
-    if (height == h) return;
     if (h == 9999 || h == 0) {
       if (serverClient && serverClient.connected()) {
         serverClient.print("Fake-height: ");
-        serverClient.print(h);
-        serverClient.println("mm");
+        serverClient.println(h);
       }
       return;
     }
 
+    h = Util::to_mm(h);
+    if (height == h) return;
     height = h;
     height_changed.reset(700);
 
@@ -357,13 +372,11 @@ private:
     //           =       =
     p = pb.head;
     if (desk.get(p) == 0x01 && desk.get(p) == 0x03) {
-      // Not sure what 3 and 7 are for.  Units?
-      unsigned int h = desk.get(p) * 0x100;
-      h += desk.get(p);
-      set_height(h);
+      // Not sure what P2 is for.
+      unsigned int h = desk.get(p);
+      set_height(Util::getword(h, desk.get(p)));
       return;
     }
-
 
     //-- Move to preset position
     //   F2-F2-92-1-10-A3-7E
