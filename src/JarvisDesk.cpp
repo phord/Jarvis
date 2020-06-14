@@ -58,7 +58,7 @@ struct one_shot_timer {
 
 struct Util {
   static unsigned int getword(unsigned char a, unsigned char b) {
-    return (a << 8) + b;
+    return (static_cast<unsigned>(a) << 8) + b;
   }
 
   static unsigned to_mm(unsigned h) {
@@ -68,6 +68,7 @@ struct Util {
       h += 50;   // round up to nearest whole mm
       h /= 100;  // convert to mm
     }
+    return h;
   }
 
 };
