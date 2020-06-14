@@ -390,6 +390,17 @@ private:
     }
   }
 
+  void program_preset(unsigned memset) {
+    // Record program setting if we know the height
+    if (height) {
+      char buf[20];
+      sprintf(buf, "Prog_%d", memset);
+      io_set(buf, height);
+    }
+    Log.println("Memory-set: ", memset, " ", height);
+
+  }
+
   // decode the packet from head..tail and verify checksum
   void decode_handset(ring_buffer::payload const &pb) {
     unsigned char p;
@@ -410,13 +421,7 @@ private:
     if ((cmd == MSET_1 || cmd == MSET_2 || cmd == MSET_3 || cmd == MSET_4) && hs.get(p) == 0x00) {
       // Convert 3..6 => 1..4
       auto memset = (cmd & 0x0F) - 2;
-      // Record program setting if we know the height
-      if (height) {
-        char buf[20];
-        sprintf(buf, "Prog_%d", memset);
-        io_set(buf, height);
-      }
-      Log.print("Memory-set: ", memset, " ", height);
+      program_preset(memset);
       return;
     }
 
@@ -620,20 +625,20 @@ private:
           break;
 
         case PROGMEM_1:
-          Log.println("Program set 1");
-          break;
+          parent.program_preset(1);
+          return;
 
         case PROGMEM_2:
-          Log.println("Program set 2");
-          break;
+          parent.program_preset(2);
+          return;
 
         case PROGMEM_3:
-          Log.println("Program set 3");
-          break;
+          parent.program_preset(3);
+          return;
 
         case PROGMEM_4:
-          Log.println("Program set 4");
-          break;
+          parent.program_preset(4);
+          return;
 
         case WAKE:
           Log.println("WAKE");
