@@ -1,13 +1,64 @@
-### Jarvis Standup Desk interface
+**Me:** Ok, Google. Stand up.<br/>
+**Google Assistant:**  Ok. Raising your Jarvis desk.<br/>
+**Desk:** _begins moving obediently_<br/>
 
-**Technical notes**
+### IoT Jarvis standup desk interface
 
-The Jarvis desk controller I have is the touchpanel interface with memories.  You can surely use
+**Notice:** This project probably will void your warranty.  Proceed at your own risk.
+
+This is a project to add a computer interface to my [Jarvis stand-up desk from fully.com](https://www.fully.com/standing-desks/jarvis.html). 
+I reverse-engineered the interface between the desk handset and the desk controller box
+to find out how they communicate. Then I wired an ESP8266 wifi module (like the [Huzzah 
+from Adafruit](https://www.adafruit.com/product/2471)) to a couple of RJ-45
+jacks and plugged it all together.  Now I can snoop on the messages being sent between
+the desk and the handset, inject my own messages to either one, and monitor the desk position
+from the internet using the AdafruitIO MQTT dashboard interface.
+
+It's pretty cool, but honestly, my motivation was to be able to lower the desk without getting
+up to see the handset controller. The desk sits next to my couch at home. When I want to set
+a drink on it while watching TV, it's inconvenient if I left it standing up.  "Ok, Google. Sit down"
+The desk lowers, and I can put my drink down and continue watching Netflix. To be fair, I didn't need to
+decode the serial interface for this because the buttons used for memory presets are sent on separate
+signal lines. The serial protocol decoding was just for fun.
+
+As a useless side-benefit, you can look back at my [desk's height history](https://io.adafruit.com/phord/feeds/jarvis.height) and see every time it moved up or down and [what preset was used](https://io.adafruit.com/phord/feeds/jarvis.preset).
+And I can control my desk from anywhere on the internet, so I can lower it even if I'm not home, though that
+seems like a bad idea.
+
+![Jarvis desk position history graph](docs/Jarvi-desk-position-history.png)
+
+Features so far:
+* Reverse engineered the UART interface and most control messages
+* Snoop on the messages being sent between the desk and the handset
+* Read the handset buttons
+* Telnet wifi interface for debug logging
+* Simulate handset buttons (e.g. press 3)
+* Monitor desk configuration
+* Connected the desk to AdafruitIO's MQTT dashboard for monitoring
+* Can control the desk position via the AdafruitIO dashboard
+* Interfaced IFTTT to the AdafruitIO feed controlling my desk
+* Added a Google Assistant command phrase to raise and lower my desk
+
+Future things:
+* Inject control messages to the UART to control and configure the desk
+* Inject control messages to the UART to control the handset display
+* Explore the handset to see what else it might be hiding
+* Keep the handset display awake so buttons are always visible[1]
+* Explore the _other_ UART control protocol the desk sometimes falls into
+* Expose all handset controls so people can add memory presets to their cheap-model handsets.
+* Expand the telnet interface to permit different log levels, message injection, etc.
+
+[1] Sadly, you can't display random text on your display module, as far as I know.
+But you could make a nice little 3-digit clock or something there, if you wanted.
+
+### Technical notes
+
+The Jarvis desk handset style I have is the touchpanel interface with memories.  You can surely use
 the desk without this interface if you design your own, but you need to know the protocols.  I
 will try to publish what I discovered through reverse-engineering here.
 
-Handset model: JCHT35M16-1
-Desk controller model: FullyCB2C-A
+* Handset model: JCHT35M16-1
+* Desk controller model: FullyCB2C-A
 
 ## Physical interface
 
@@ -30,14 +81,17 @@ Following are their usage on the desk:
 |  7  |  HS1  | Handset control line 1 [1]
 |  8  |  HS0  | Handset control line 0 [1]
 
-[1] The pins (HS0, HS1, HS2, HS3) make up the "button" presses mux lines. See HSx for description
-[2] Serial port UART is 9600bps, 8 data bits, No parity, 1 stop bit
-[3] 5VDC supply appears capable of driving at least 300ma
+[1] The pins (HS0, HS1, HS2, HS3) make up the "button-press" mux lines. See _HSx control lines_ below<br/>
+[2] Serial port UART is 9600bps, 8 data bits, No parity, 1 stop bit<br/>
+[3] 5VDC supply appears capable of driving at least 300ma<br/>
 [4] All the signal lines have 5v pullups provided by the desk controller
+
+![Interface signal showing "Memory" and "3" being pressed](docs/Wake-3.png)
+_In this capture, I pressed "Memory" to wake the screen up, and then 3 to move the desk to position 3._
 
 ## HSx control lines
 
-The desk provides 5v pullups on all these signal lines.
+The desk provides 5v pullups on all these signal lines. A mark is signaled by pulling the line low.
 
 On the mechanical desk control buttons, when you press the up button, one of these lines is
 pulled low.  Similarly when you press the down button, another line is pulled low.  When you
@@ -73,8 +127,7 @@ The Jarvis UART signaling protocol sends checksummed control packets consisting 
 and 9 bytes. All data is sent using 9600 bps, 8 data bits, no parity (9600/8N1). Desk controller
 sends data on Tx, handset sends data on Rx.  Command packets are the same format on both.
 
-|          |    Size |
-| Field    | (bytes) | Description
+| Field    | Octets  | Description
 | -------- | ------- | ---------------------------------
 | ADDRESS  |      2  | Same value in both bytes; 0xF1 for Handset, 0xF2 for controller
 | COMMAND  |      1  | See *KNOWN COMMANDS*
@@ -122,50 +175,49 @@ _Note: I don't know any official names for these commands, so I made these up my
 _Any mistakes here about the command usage or meaning are mine._
 _All transmitted byte values are given in hex._
 
-|           |  CMD | Desk or | Num of |
-| Name      | code | Handset | Params | Description
+| Name      | CMD  | Desk/HS | Params | Description
 | --------- | ---- | ------- | ------ | ----------------------------------------
 | HEIGHT    |  01  |   D     |    3   | Height report; P0=4 (mm?)
-|           |      |         |        |   {P0,P1} = height in mm or inches*10
+|           |      |         |        |   {P0,P1} = height in mm or tenths of inches
 |           |      |         |        |   P2 = ??? (0x7 or 0xF seen so far)  Not units
-|           |      |         |        |   Height from 240..530 is in inches*10
+|           |      |         |        |   Height from 240..530 is in inches
 |           |      |         |        |   Height from 650..1290 is in mm
 |           |      |         |        |
-| PROGMEM_1 |  03  |   H     |    0   | Set memory position 1 to current height
-| PROGMEM_2 |  04  |   H     |    0   | Set memory position 2 to current height
-| PROGMEM_3 |  25  |   H     |    0   | Set memory position 3 to current height
-| PROGMEM_4 |  26  |   H     |    0   | Set memory position 4 to current height
+| PROGMEM\_1 |  03  |   H     |    0   | Set memory position 1 to current height
+| PROGMEM\_2 |  04  |   H     |    0   | Set memory position 2 to current height
+| PROGMEM\_3 |  25  |   H     |    0   | Set memory position 3 to current height
+| PROGMEM\_4 |  26  |   H     |    0   | Set memory position 4 to current height
 |           |      |         |        |
 | UNITS     |  0E  |   H     |    1   | Set units to cm/inches
 |           |      |         |        |   P0=0x00  Set units to CM
 |           |      |         |        |   P0=0x01  Set units to IN
 |           |      |         |        |
-| MEM_MODE  |  19  |   H     |    1   | Set memory mode
+| MEM\_MODE  |  19  |   H     |    1   | Set memory mode
 |           |      |         |        |   P0=0x00  One-touch mode
 |           |      |         |        |   P0=0x01  Constant touch mode
 |           |      |         |        |
-| COLL_SENS |  1D  |   H     |    1   | Set anti-collision sensitivity  (Sent 1x; no repeats)
+| COLL\_SENS |  1D  |   H     |    1   | Set anti-collision sensitivity  (Sent 1x; no repeats)
 |           |      |         |        |   P0=0x01  High
 |           |      |         |        |   P0=0x02  Medium
 |           |      |         |        |   P0=0x03  Low
 |           |      |         |        |
-| LIMIT_RESP|  20  |   D     |    1   | Max-height set/cleared; response to [21];
+| LIMIT\_RESP|  20  |   D     |    1   | Max-height set/cleared; response to [21];
 |           |      |         |        |   P0=0x00  "Min/max cleared"
 |           |      |         |        |   P0=0x01  "Max-height set"
 |           |      |         |        |   P0=0x10  "Min-height set"
 |           |      |         |        |
-| SET_MAX   |  21  |   H     |    0   | Set max height; Sets max-height to current height
+| SET\_MAX   |  21  |   H     |    0   | Set max height; Sets max-height to current height
 |           |  21  |   D     |    2   | Report max-height; [P0,P1] = max-height
 |           |      |         |        |   Q: Can we set max-height by giving params?
 |           |      |         |        |
-| SET_MIN   |  22  |   H     |    0   | Set min height; Sets min-height to current height
+| SET\_MIN   |  22  |   H     |    0   | Set min height; Sets min-height to current height
 |           |  22  |   D     |    2   | Report min-height; [P0,P1] = min-height
 |           |      |         |        |
-| LIMIT_CLR |  23  |   H     |    1   | Clear min/max height
+| LIMIT\_CLR |  23  |   H     |    1   | Clear min/max height
 |           |      |         |        |   P0=0x01  Max-height cleared
 |           |      |         |        |   P0=0x02  Min-height cleared
 |           |      |         |        |
-| LIMIT_STOP|  23  |   D     |    1   | Min/Max reached
+| LIMIT\_STOP|  23  |   D     |    1   | Min/Max reached
 |           |      |         |        |   P0=0x01  "Max-height reached"
 |           |      |         |        |   P0=0x02  "Min-height reached"
 |           |      |         |        |
@@ -177,24 +229,25 @@ _All transmitted byte values are given in hex._
 |           |      |         |        |   Desk must be at lowest position
 |           |      |         |        |   Desk enters RESET mode after this
 |           |      |         |        |
-| REP_PRESET|  92  |   D     |    1   | Moving to Preset location
+| REP\_PRESET|  92  |   D     |    1   | Moving to Preset location
 |           |      |         |        |   P0=[4,8,10,20] mapping to presets [1,2,3,4]
 
 ## Height report
 
 The desk controller responds to the handset by sending a display message containing the current
 desk height. It sends this several dozen times while the display is on.  The height is encoded
-as a two-byte word (HI, LOW) which make up the desk's height in mm.  The units are in CM*10 or
-IN*10 depending on the configuration UNITS setting. The packet looks like this:
+as a two-byte word (HI, LOW) which make up the desk's height.  The units are in millimeters
+tenths of inches depending on the configuration UNITS setting. The packet looks like this:
 
      CONTROLLER(0x01, HI, LOW, 0x07)
 
 For example, to indicate 128.6cm (1286mm), the desk sends CONTROLLER(0x01, 0x05, 0x06, 0x07),
-because 0x0506 = 1286 in decimal.
+because 0x0506 = 1286 in decimal.  I don't know what the third parameter is here (0x07).  Sometimes
+it's 0x0F.  More experimenting needed.
 
 ## Memory setting
 
-Memories are programmed by sending one of the PROGMEM_* commands to the controller.  Each
+Memories are programmed by sending one of the PROGMEM\_\* commands to the controller.  Each
 command takes no parameters but sets the memory to the current height of the desk.
 
 The desk does not acknowledge the setting.
@@ -206,10 +259,12 @@ shown above in *HSx control lines*. Notice that the binary pattern flagged in th
 1 to 0x03, 2 to 0x04, 3 to 0x05 and 4 to 0x06.
 
 The command codes to set these presets are mapped similarly:
-    PROGMEM_1 = 0x03, PROGMEM_2 = 0x04, PROGMEM_3 = 0x25 and PROGMEM_4 = 0x26.
+    PROGMEM\_1 = 0x03, PROGMEM\_2 = 0x04, PROGMEM\_3 = 0x25 and PROGMEM\_4 = 0x26.
 
 Why not the same?  Is it because 3&4 were added on later, but commands 0x05/0x06 were taken?
 
 ## Configuration commands
 
-  **TBD**
+See the table above for the short version.  Each command may or may not be sent multiple times and 
+have a different stream of responses from the other side.  I'll try to document my findings about
+these anomalies here later.
