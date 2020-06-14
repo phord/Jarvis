@@ -215,96 +215,8 @@ private:
     if (preset & 8) latch_pin(HS3);
   }
 
-  #define BUFSIZE       20
   #define CONTROLLER    0xF2
   #define HANDSET       0xF1
-  #define EOM           0x7E
-
-  struct ring_buffer {
-    unsigned char tail = 0;
-    unsigned char serial_buffer[BUFSIZE];
-    unsigned char addr = 0;
-
-    ring_buffer(unsigned char address) : addr(address) {}
-
-    unsigned char prev(unsigned char p) {
-        return (p-1 + BUFSIZE) % BUFSIZE;
-    }
-
-    unsigned char next(unsigned char p) {
-        return (p+1) % BUFSIZE;
-    }
-
-    unsigned char get(unsigned char &p) {
-        if (p == tail) return 0;
-        unsigned char ch = serial_buffer[p];
-        p = next(p);
-        return ch;
-    }
-
-    struct payload {
-      unsigned char head = 0, tail = 0;
-      enum ERR {NONE = 0, WAITING, CHKSUM, eUNDERFLOW};
-      ERR err = NONE;
-
-      payload(unsigned char start, unsigned char end) : head(start), tail(end) {}
-      payload(ERR e) : err(e) {}
-    };
-
-    payload put(unsigned char ch) {
-      serial_buffer[tail] = ch;
-
-      payload p = {payload::ERR::WAITING};
-      if (ch == EOM)
-        p = parse_packet();
-
-      tail = next(tail);
-      return p;
-    }
-
-    payload parse_packet() {
-      unsigned char head = prev(tail);
-
-      //-- Header: starts with controller address 2x
-      while ((head = prev(head)) != tail) {
-        if (serial_buffer[head] == addr)
-          if (serial_buffer[next(head)] == addr)
-            break;
-      }
-
-      //-- Underflow
-      if (head == tail) return {payload::ERR::eUNDERFLOW};
-
-      //-- Payload
-      unsigned char p = head = next(next(head));
-      unsigned char e = prev(tail);        // ptr to chksum byte
-      unsigned char chksum = 0;
-      while (p != e) {
-        chksum += get(p);
-      }
-
-      //-- Bad checksum
-      if (chksum != get(p)) return {payload::ERR::CHKSUM};
-
-      return {head, e};
-    }
-
-    void dump_all() {
-      auto p = next(tail);
-      Log.print("DUMP: ");
-      while (p != tail) {
-        unsigned ch = get(p);
-        Log.print_hex(ch);
-        if (p == tail)
-          Log.println();
-        else
-          Log.print("-");
-      }
-    }
-  };
-
-  ring_buffer desk = {CONTROLLER};
-  ring_buffer hs = {HANDSET};
 
   void set_preset(unsigned char p) {
     if (preset == p) return;
@@ -330,66 +242,6 @@ private:
     io_set("height", height);
   }
 
-  bool error(const ring_buffer::payload &pb) {
-    {
-      const char * msg = nullptr;
-      if (pb.err == ring_buffer::payload::ERR::eUNDERFLOW)   msg = "UNDERFLOW";
-      else if (pb.err == ring_buffer::payload::ERR::CHKSUM) msg = "CHKSUM";
-      if (msg) Log.println(msg);
-    }
-    return !!pb.err;
-  }
-
-  // decode the packet from head..tail and verify checksum
-  void decode_desk(ring_buffer::payload const &pb) {
-    unsigned char p;
-
-    //-- Height announcement
-    //   F2 F2 1 3 HI LO 7 CHK
-    //           =       =
-    p = pb.head;
-    if (desk.get(p) == 0x01 && desk.get(p) == 0x03) {
-      // Not sure what P2 is for.
-      unsigned int h = desk.get(p);
-      set_height(Util::getword(h, desk.get(p)));
-      return;
-    }
-
-    //-- Move to preset position
-    //   F2-F2-92-1-10-A3-7E
-    //              ==
-    p = pb.head;
-    if (desk.get(p) == 0x92 && desk.get(p) == 0x01) {
-      unsigned char ps = 0;
-      unsigned char ch = desk.get(p);
-      switch (ch) {
-        case 0x04: ps = 1; break;
-        case 0x08: ps = 2; break;
-        case 0x10: ps = 3; break;
-        case 0x20: ps = 4; break;
-        default: break; // error?
-      }
-      if (ps) {
-        set_preset(ps);
-        return;
-      }
-    }
-
-    //-- Unknown codes
-    {
-      p = pb.head;
-      Log.print("Desk: ");
-      while (p != pb.tail) {
-        unsigned ch = desk.get(p);
-        Log.print_hex(ch);
-        if (p == pb.tail)
-          Log.println();
-        else
-          Log.print("-");
-      }
-    }
-  }
-
   void program_preset(unsigned memset) {
     // Record program setting if we know the height
     if (height) {
@@ -399,45 +251,6 @@ private:
     }
     Log.println("Memory-set: ", memset, " ", height);
 
-  }
-
-  // decode the packet from head..tail and verify checksum
-  void decode_handset(ring_buffer::payload const &pb) {
-    unsigned char p;
-
-    //-- Program preset
-    //   F1 F1 26 0 CHK
-    //         == =
-    // Note these commands nearly match the binary patterns that pset buttons 1-4 send
-    // on the HS0..HS3 signal lines.  Surely not a coincidence?  Are more presets possible?
-    enum {
-      MSET_1 = 0x03,
-      MSET_2 = 0x04,
-      MSET_3 = 0x25,
-      MSET_4 = 0x26
-    };
-    p = pb.head;
-    auto cmd = hs.get(p);
-    if ((cmd == MSET_1 || cmd == MSET_2 || cmd == MSET_3 || cmd == MSET_4) && hs.get(p) == 0x00) {
-      // Convert 3..6 => 1..4
-      auto memset = (cmd & 0x0F) - 2;
-      program_preset(memset);
-      return;
-    }
-
-    //-- Unknown codes
-    if (Log.connected()) {
-      p = pb.head;
-      Log.print("Handset: ");
-      while (p != pb.tail) {
-        unsigned ch = hs.get(p);
-        Log.print_hex(ch);
-        if (p == pb.tail)
-          Log.println();
-        else
-          Log.print("-");
-      }
-    }
   }
 
   struct cmdPacket {
@@ -693,30 +506,17 @@ private:
   void decode_serial() {
     while (deskSerial.available()) {
       auto ch = deskSerial.read();
-      auto p = desk.put(ch);
       if (deskPacket.put(ch)) {
         deskPacket.decode(*this);
-        deskPacket.dump();
       }
-      if (!error(p))
-        decode_desk(p);
-      else if (p.err == ring_buffer::payload::ERR::CHKSUM)
-        desk.dump_all();
     }
 
     while (hsSerial.available()) {
       auto ch = hsSerial.read();
-      auto p = hs.put(ch);
       if (hsPacket.put(ch)) {
         hsPacket.decode(*this);
-        hsPacket.dump();
       }
-      if (!error(p))
-        decode_handset(p);
-      else if (p.err == ring_buffer::payload::ERR::CHKSUM)
-        hs.dump_all();
     }
-
   }
 };
 
