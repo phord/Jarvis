@@ -22,7 +22,6 @@ enum JarvisMessage {
   BUTTON_3 = 5,
   BUTTON_4 = 6,
   BUTTON_MEM = 9
-  // WIP: Add serial comms messages
 };
 
 SoftwareSerial deskSerial(P3);
@@ -531,6 +530,126 @@ private:
       return complete;
     }
 
+    void print_choice(int n, std::vector<const char *> args) {
+      if (n < args.size()) Log.println(args[n]);
+      else Log.println("UNKNOWN[P0=",n,"]");
+    }
+
+    template<class ...Args>
+    void config(const char * field, Args... args) {
+      Log.print(field, ":");
+      if (!argc) Log.println("No args?");
+      else print_choice(argv[0], {args...});
+    }
+
+    void decode(JarvisDesk_impl & parent) {
+      switch (cmd) {
+        case NONE:       break;
+
+  // CONTROLLER commands
+        case HEIGHT:
+          if (argc >= 2) parent.set_height(Util::getword(argv[0], argv[1]));
+          else Log.println("set-height: not enough args?");
+          break;
+
+        case REP_MAX:
+          {
+            auto h = Util::to_mm(Util::getword(argv[0], argv[1]));
+            Log.println("Max-height set to ", h, "mm");
+          }
+          break;
+
+        case REP_MIN:
+          {
+            auto h = Util::to_mm(Util::getword(argv[0], argv[1]));
+            Log.println("Max-height set to ", h, "mm");
+          }
+          break;
+
+        case LIMIT_RESP:
+          if (argc) {
+            switch (argv[0]) {
+              case 0: Log.println("Height limit: cleared (min or max)"); break;
+              case 0x01: Log.println("Height limit set: Max"); break;
+              case 0x10: Log.println("Height limit set: Min"); break;
+              default: Log.println("Height limit: unknown", argv[0]); break;
+            }
+          }
+          break;
+
+        case LIMIT_STOP:
+          if (argc) {
+            switch (argv[0]) {
+              case 1: Log.println("Height limit reached: Max"); break;
+              case 2: Log.println("Height limit reached: Min"); break;
+              default: Log.println("Height limit reached: unknown[", argv[0], "]"); break;
+            }
+          }
+          break;
+
+        case RESET:
+          Log.println("RESET");
+          break;
+
+        case REP_PRESET:
+          // Variant results; wtf?
+          // 1,2,3,4 = {4, 8, 16, 32}
+          // OR
+          // 1,2,3,4 = {3, 4, 0x25, 0x26}
+          Log.println("Moving to preset: ", argv[0]);
+          break;
+
+  // HANDSET commands
+        case UNITS:
+          config("Units", "inches",  "centimeters");
+          break;
+
+        case MEM_MODE:
+          config("Memory mode", "One-touch",  "Constant touch");
+          break;
+
+        case COLL_SENS:
+          config("Collision sensitivity", "???", "High", "Medium", "Low");
+          break;
+
+        // TBD
+        // case SET_MAX:  // See REP_MAX
+        // case SET_MIN:  // See REP_MIN
+        // case LIMIT_CLR: // See LIMIT_STOP
+          break;
+
+        case PROGMEM_1:
+          Log.println("Program set 1");
+          break;
+
+        case PROGMEM_2:
+          Log.println("Program set 2");
+          break;
+
+        case PROGMEM_3:
+          Log.println("Program set 3");
+          break;
+
+        case PROGMEM_4:
+          Log.println("Program set 4");
+          break;
+
+        case WAKE:
+          Log.println("WAKE");
+          break;
+
+        case CALIBRATE:
+          Log.println("Calibrate min-height");
+          break;
+
+        // Unrecognized:
+        default:
+          Log.print("UNKNOWN COMMAND: ");
+          dump();
+          break;
+      }
+    }
+
     void dump() {
       Log.print("Packet: addr=");
       Log.print(addr, HEX);
@@ -557,6 +676,7 @@ private:
       auto ch = deskSerial.read();
       auto p = desk.put(ch);
       if (deskPacket.put(ch)) {
+        deskPacket.decode(*this);
         deskPacket.dump();
       }
       if (!error(p))
@@ -569,6 +689,7 @@ private:
       auto ch = hsSerial.read();
       auto p = hs.put(ch);
       if (hsPacket.put(ch)) {
+        hsPacket.decode(*this);
         hsPacket.dump();
       }
       if (!error(p))
