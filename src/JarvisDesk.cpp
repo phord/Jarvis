@@ -709,6 +709,10 @@ JarvisDesk::JarvisDesk() {
   jarvis = new JarvisDesk_impl();
 }
 
+JarvisDesk::~JarvisDesk() {
+  delete jarvis;
+}
+
 void JarvisDesk::begin() {
   jarvis->begin();
 }

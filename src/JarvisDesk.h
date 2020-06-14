@@ -8,6 +8,7 @@ class JarvisDesk {
     public:
 
     JarvisDesk();
+    ~JarvisDesk();
 
     void begin();
     void run();
