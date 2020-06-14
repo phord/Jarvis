@@ -7,6 +7,7 @@
 
 #include "local-config.h"
 #include "src/JarvisDesk.h"
+#include "src/TelnetLogger.h"
 
 #include "AdafruitIO_WiFi.h"
 const int LED_PIN = LED_BUILTIN;
@@ -20,9 +21,6 @@ JarvisDesk Jarvis;
 // FIXME: Move to flasher.h
 void flash(unsigned count = 0, float secs = 0.3);
 void momentary(unsigned preset);
-
-void telnet_setup();
-void telnet_loop();
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
@@ -80,7 +78,7 @@ void setup() {
   ArduinoOTA.begin();
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-  telnet_setup();
+  Log.begin();
   jarvis_sub->get();
 
 }
@@ -92,7 +90,7 @@ void loop() {
   // run the Jarvis desk interface
   Jarvis.run();
 
-  telnet_loop();
+  Log.run();
 
   // Run the OTA Updater Service
   ArduinoOTA.handle();
@@ -109,19 +107,10 @@ void loop() {
     //  Serial.println(data->toCSV());
     }
 
-extern WiFiClient serverClient;
 // Handle messages from AdafruitIO
 void handlePreset(AdafruitIO_Data *data)
 {
-  if (serverClient && serverClient.connected()) {  // send data to Client
-    serverClient.print(">MSG:");
-
-    serverClient.print(" ");
-    serverClient.print(data->feedName());
-    serverClient.print("=");
-    serverClient.print(data->toString());
-    serverClient.println();
-  }
+  Log.println(">MSG: ", data->feedName(), "=", data->toString());
 
   auto preset = data->toInt();
   flash(preset, 0.25);

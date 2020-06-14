@@ -4,6 +4,7 @@
 #include <SoftwareSerial.h>
 
 #include "JarvisDesk.h"
+#include "TelnetLogger.h"
 
 // Pinouts for ESP8266 Oak (which uses these "P" numbers)
 #define HS0   P9
@@ -11,9 +12,7 @@
 #define HS2   P7
 #define HS3   P5
 
-extern WiFiClient serverClient;
 extern AdafruitIO_WiFi io;
-extern AdafruitIO_Group *jarvis_sub;
 
 enum JarvisMessage {
   BUTTON_DOWN = 1,
@@ -166,12 +165,7 @@ private:
   }
 
   void io_set(const char * field, unsigned long value) {
-    if (serverClient && serverClient.connected()) {
-      serverClient.print("io_set: ");
-      serverClient.print(field);
-      serverClient.print("=");
-      serverClient.println(value);
-    }
+    Log.print("io_set: ", field, "=", value);
 
     io_pending = true;
     jarvis->set(field, value);
@@ -182,19 +176,15 @@ private:
 
   bool io_send() {
     if (io_pending && io_timer.expired()) {
-      if (serverClient && serverClient.connected()) {
-        serverClient.print("save:");
+      Log.print("save:");
 
-        auto data = jarvis->data;
-        while (data) {
-          serverClient.print(" ");
-          serverClient.print(data->feedName());
-          serverClient.print("=");
-          serverClient.print(data->toString());
-          data = data->next_data;
-        }
-        serverClient.println();
+      auto data = jarvis->data;
+      while (data) {
+        Log.print(" ", data->feedName(), "=", data->toString());
+        data = data->next_data;
       }
+      Log.println();
+
       jarvis->save();
       io_pending = false;
       io_timer.reset(2000);
@@ -300,17 +290,15 @@ private:
     }
 
     void dump_all() {
-      if (serverClient && serverClient.connected()) {
-        auto p = next(tail);
-        serverClient.print("DUMP: ");
-        while (p != tail) {
-          unsigned ch = get(p);
-          serverClient.print(ch, HEX);
-          if (p == tail)
-            serverClient.println();
-          else
-            serverClient.print("-");
-        }
+      auto p = next(tail);
+      Log.print("DUMP: ");
+      while (p != tail) {
+        unsigned ch = get(p);
+        Log.print(ch, HEX);
+        if (p == tail)
+          Log.println();
+        else
+          Log.print("-");
       }
     }
   };
@@ -324,19 +312,12 @@ private:
 
     // publish update to AdafruitIO
     io_set("preset", p);
-
-    // if (serverClient && serverClient.connected()) {
-    //   serverClient.print("Preset: ");
-    //   serverClient.println(preset);
-    // }
   }
 
   void set_height(unsigned int h) {
     if (h == 9999 || h == 0) {
-      if (serverClient && serverClient.connected()) {
-        serverClient.print("Fake-height: ");
-        serverClient.println(h);
-      }
+      Log.print("Fake-height: ");
+      Log.println(h);
       return;
     }
 
@@ -347,20 +328,14 @@ private:
 
     // publish update to AdafruitIO
     io_set("height", height);
-
-    // if (serverClient && serverClient.connected()) {
-    //   serverClient.print("Height: ");
-    //   serverClient.print(height);
-    //   serverClient.println("mm");
-    // }
   }
 
   bool error(const ring_buffer::payload &pb) {
-    if (serverClient && serverClient.connected()) {
+    {
       const char * msg = nullptr;
       if (pb.err == ring_buffer::payload::ERR::eUNDERFLOW)   msg = "UNDERFLOW";
       else if (pb.err == ring_buffer::payload::ERR::CHKSUM) msg = "CHKSUM";
-      if (msg) serverClient.println(msg);
+      if (msg) Log.println(msg);
     }
     return !!pb.err;
   }
@@ -401,16 +376,16 @@ private:
     }
 
     //-- Unknown codes
-    if (serverClient && serverClient.connected()) {
+    {
       p = pb.head;
-      serverClient.print("Desk: ");
+      Log.print("Desk: ");
       while (p != pb.tail) {
         unsigned ch = desk.get(p);
-        serverClient.print(ch, HEX);
+        Log.print(ch, HEX);
         if (p == pb.tail)
-          serverClient.println();
+          Log.println();
         else
-          serverClient.print("-");
+          Log.print("-");
       }
     }
   }
@@ -441,26 +416,21 @@ private:
         sprintf(buf, "Prog_%d", memset);
         io_set(buf, height);
       }
-      if (serverClient && serverClient.connected()) {
-        serverClient.print("Memory-set: ");
-        serverClient.print(memset);
-        serverClient.print(" ");
-        serverClient.println(height);
-      }
+      Log.print("Memory-set: ", memset, " ", height);
       return;
     }
 
     //-- Unknown codes
-    if (serverClient && serverClient.connected()) {
+    if (Log.connected()) {
       p = pb.head;
-      serverClient.print("Handset: ");
+      Log.print("Handset: ");
       while (p != pb.tail) {
         unsigned ch = hs.get(p);
-        serverClient.print(ch, HEX);
+        Log.print(ch, HEX);
         if (p == pb.tail)
-          serverClient.println();
+          Log.println();
         else
-          serverClient.print("-");
+          Log.print("-");
       }
     }
   }
@@ -562,22 +532,19 @@ private:
     }
 
     void dump() {
-      if (serverClient && serverClient.connected()) {
-        serverClient.print("Packet: addr=");
-        serverClient.print(addr, HEX);
-        serverClient.print(" state=");
-        serverClient.print(state);
-        serverClient.print(" argc=");
-        serverClient.print(argc, HEX);
-        serverClient.print(" argv=[ ");
-        for (unsigned i = 0 ; i < argc ; i++) {
-          serverClient.print(argv[i], HEX);
-          serverClient.print(" ");
-        }
-        serverClient.print("] checksum=");
-        serverClient.print(checksum, HEX);
-        serverClient.println();
+      Log.print("Packet: addr=");
+      Log.print(addr, HEX);
+      Log.print(" state=", state);
+      Log.print(" argc=");
+      Log.print(argc, HEX);
+      Log.print(" argv=[ ");
+      for (unsigned i = 0 ; i < argc ; i++) {
+        Log.print(argv[i], HEX);
+        Log.print(" ");
       }
+      Log.print("] checksum=");
+      Log.print(checksum, HEX);
+      Log.println();
     }
   };
 
@@ -596,14 +563,6 @@ private:
         decode_desk(p);
       else if (p.err == ring_buffer::payload::ERR::CHKSUM)
         desk.dump_all();
-
-      // // HACK: where's my serials?
-      // if (serverClient && serverClient.connected()) {
-      //   serverClient.print(ch, HEX);
-      //   serverClient.print("-");
-      //   if (ch == 0x7E)
-      //     serverClient.println();
-      // }
     }
 
     while (hsSerial.available()) {
@@ -616,14 +575,6 @@ private:
         decode_handset(p);
       else if (p.err == ring_buffer::payload::ERR::CHKSUM)
         hs.dump_all();
-
-      // // HACK: where's my serials?
-      // if (serverClient && serverClient.connected()) {
-      //   serverClient.print(ch, HEX);
-      //   serverClient.print("-");
-      //   if (ch == 0x7E)
-      //     serverClient.println();
-      // }
     }
 
   }
@@ -646,14 +597,9 @@ void JarvisDesk::run() {
 }
 
 void JarvisDesk::report() {
-  if (serverClient && serverClient.connected()) {
-    serverClient.print("Height: ");
-    serverClient.println(jarvis->height);
-    serverClient.print("Preset: ");
-    serverClient.println(jarvis->preset);
-    serverClient.print("Keys: ");
-    serverClient.println(jarvis->getMessage());
-  }
+  Log.println("Height: ", jarvis->height);
+  Log.println("Preset: ", jarvis->preset);
+  Log.println("Keys: ", jarvis->getMessage());
 }
 
 void JarvisDesk::goto_preset(int p) {
