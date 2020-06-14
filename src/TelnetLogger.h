@@ -6,9 +6,9 @@
 class TelnetLogger {
 public:
     // kluge
-    void print(int x, int base = DEC) {
+    void print_hex(unsigned x) {
       if (connected()) {
-        serverClient.print(x, base);
+        serverClient.print(x, HEX);
       }
     }
 

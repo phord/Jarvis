@@ -165,7 +165,7 @@ private:
   }
 
   void io_set(const char * field, unsigned long value) {
-    Log.print("io_set: ", field, "=", value);
+    Log.println("io_set: ", field, "=", value);
 
     io_pending = true;
     jarvis->set(field, value);
@@ -294,7 +294,7 @@ private:
       Log.print("DUMP: ");
       while (p != tail) {
         unsigned ch = get(p);
-        Log.print(ch, HEX);
+        Log.print_hex(ch);
         if (p == tail)
           Log.println();
         else
@@ -381,7 +381,7 @@ private:
       Log.print("Desk: ");
       while (p != pb.tail) {
         unsigned ch = desk.get(p);
-        Log.print(ch, HEX);
+        Log.print_hex(ch);
         if (p == pb.tail)
           Log.println();
         else
@@ -431,7 +431,7 @@ private:
       Log.print("Handset: ");
       while (p != pb.tail) {
         unsigned ch = hs.get(p);
-        Log.print(ch, HEX);
+        Log.print_hex(ch);
         if (p == pb.tail)
           Log.println();
         else
@@ -538,12 +538,15 @@ private:
 
     void print_choice(int n, std::vector<const char *> args) {
       if (n < args.size()) Log.println(args[n]);
-      else Log.println("UNKNOWN[P0=",n,"]");
+      else {
+        Log.println("UNKNOWN[P0=",n,"]");
+        dump();
+      }
     }
 
     template<class ...Args>
     void config(const char * field, Args... args) {
-      Log.print(field, ":");
+      Log.print(field, ": ");
       if (!argc) Log.println("No args?");
       else print_choice(argv[0], {args...});
     }
@@ -554,75 +557,85 @@ private:
 
   // CONTROLLER commands
         case HEIGHT:
-          if (argc >= 2) parent.set_height(Util::getword(argv[0], argv[1]));
-          else Log.println("set-height: not enough args?");
+          if (argc >= 2) {
+            parent.set_height(Util::getword(argv[0], argv[1]));
+            return;
+          }
+          Log.println("set-height: not enough args?");
           break;
 
         case REP_MAX:
-          {
+          if (argc >= 2) {
             auto h = Util::to_mm(Util::getword(argv[0], argv[1]));
             Log.println("Max-height set to ", h, "mm");
+            return;
           }
           break;
 
         case REP_MIN:
-          {
+          if (argc >= 2) {
             auto h = Util::to_mm(Util::getword(argv[0], argv[1]));
-            Log.println("Max-height set to ", h, "mm");
+            Log.println("Min-height set to ", h, "mm");
+            return;
           }
           break;
 
         case LIMIT_RESP:
-          if (argc) {
-            switch (argv[0]) {
-              case 0: Log.println("Height limit: cleared (min or max)"); break;
-              case 0x01: Log.println("Height limit set: Max"); break;
-              case 0x10: Log.println("Height limit set: Min"); break;
-              default: Log.println("Height limit: unknown", argv[0]); break;
-            }
+          if (argc == 1) {
+            Log.print("Height limit: ");
+            Log.print_hex(argv[0]);  // TBD: Meaning of {0, 1, 2, 16}
+            Log.println();
+            return;
           }
           break;
 
         case LIMIT_STOP:
           if (argc) {
-            switch (argv[0]) {
-              case 1: Log.println("Height limit reached: Max"); break;
-              case 2: Log.println("Height limit reached: Min"); break;
-              default: Log.println("Height limit reached: unknown[", argv[0], "]"); break;
-            }
+            Log.println("Height limit stop: ",
+                (argv[0] == 0x01) ? "MAX " :
+                (argv[0] == 0x02) ? "MIN" : "???");
+            if (!(argv[0] & ~0x03)) return;
           }
           break;
 
         case RESET:
           Log.println("RESET");
-          break;
+          return;
 
         case REP_PRESET:
           // Variant results; wtf?
           // 1,2,3,4 = {4, 8, 16, 32}
           // OR
           // 1,2,3,4 = {3, 4, 0x25, 0x26}
-          Log.println("Moving to preset: ", argv[0]);
+          {
+            auto preset =
+              argv[0] == 4 ? 1 :
+              argv[0] == 8 ? 2 :
+              argv[0] == 16 ? 3 :
+              argv[0] == 32 ? 4 : 0;
+            Log.println("Moving to preset: ", preset);
+            if (preset) return;
+          }
           break;
 
   // HANDSET commands
         case UNITS:
           config("Units", "inches",  "centimeters");
-          break;
+          return;
 
         case MEM_MODE:
           config("Memory mode", "One-touch",  "Constant touch");
-          break;
+          return;
 
         case COLL_SENS:
           config("Collision sensitivity", "???", "High", "Medium", "Low");
-          break;
+          return;
 
         // TBD
         // case SET_MAX:  // See REP_MAX
         // case SET_MIN:  // See REP_MIN
         // case LIMIT_CLR: // See LIMIT_STOP
-          break;
+          return;
 
         case PROGMEM_1:
           parent.program_preset(1);
@@ -642,34 +655,34 @@ private:
 
         case WAKE:
           Log.println("WAKE");
-          break;
+          return;
 
         case CALIBRATE:
           Log.println("Calibrate min-height");
-          break;
+          return;
 
         // Unrecognized:
         default:
           Log.print("UNKNOWN COMMAND: ");
-          dump();
           break;
       }
+      dump();
     }
 
     void dump() {
-      Log.print("Packet: addr=");
-      Log.print(addr, HEX);
-      Log.print(" state=", state);
-      Log.print(" argc=");
-      Log.print(argc, HEX);
-      Log.print(" argv=[ ");
-      for (unsigned i = 0 ; i < argc ; i++) {
-        Log.print(argv[i], HEX);
-        Log.print(" ");
+      Log.print_hex(addr);
+      Log.print(": ");
+      Log.print_hex(cmd);
+      if (!argc) {
+        Log.println();
+        return;
       }
-      Log.print("] checksum=");
-      Log.print(checksum, HEX);
-      Log.println();
+      Log.print("[");
+      for (unsigned i = 0 ; i < argc ; i++) {
+        Log.print_hex(argv[i]);
+        if (i+1 < argc) Log.print(" ");
+      }
+      Log.println("]");
     }
   };
 
@@ -707,8 +720,6 @@ private:
   }
 };
 
-void jarvis_report() {
-}
 
 //-- JarvisDesk API interface
 JarvisDesk::JarvisDesk() {
