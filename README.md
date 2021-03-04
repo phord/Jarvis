@@ -76,7 +76,7 @@ Following are their usage on the desk:
 |  2  |  Tx   | Serial control messages from controller to handset [2]
 |  3  |  GND  | Ground
 |  4  |  Rx   | Serial control messages from handset to controller [2]
-|  5  |  GND  | Vcc (5vdc) supply from desk controller [3]
+|  5  |  VCC  | Vcc (5vdc) supply from desk controller [3]
 |  6  |  HS2  | Handset control line 2 [1]
 |  7  |  HS1  | Handset control line 1 [1]
 |  8  |  HS0  | Handset control line 0 [1]
