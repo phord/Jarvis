@@ -80,7 +80,7 @@ class JarvisDesk_impl {
     deskSerial.begin(9600);
     hsSerial.begin(9600);
 
-    // Disable pullups turned on my espSoftwareSerial library
+    // Disable pullups turned on by espSoftwareSerial library
     pinMode(P3, INPUT);
     pinMode(P4, INPUT);
     jarvis->get();
