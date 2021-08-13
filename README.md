@@ -152,6 +152,12 @@ given as CONTROLLER(COMMAND, PARAMS, ...) and the handset packets will be given 
 HANDSET(COMMAND, PARAMS...).  PARAMS are given as P0 for the first byte, P1 for the second,
 etc.  16-bit params are indicated like {P0,P1}. Optional params are shown in brackets.
 
+For example, the HANDSET(0x29) message is sent from the handset to the desk.  It represents
+this sequence of 6 bytes:
+
+    F1  F1     29       00       29          7E
+    ADDRESS    COMMAND  LENGTH   CHECKSUM    EOM
+
 ## Startup sequence
 
 Smart handset sends a NULL (0x00) byte on first startup.  If no response is received from the
@@ -236,7 +242,7 @@ _All transmitted byte values are given in hex._
 
 The desk controller responds to the handset by sending a display message containing the current
 desk height. It sends this several dozen times while the display is on.  The height is encoded
-as a two-byte word (HI, LOW) which make up the desk's height.  The units are in millimeters
+as a two-byte word (HI, LOW) which make up the desk's height.  The units are in millimeters or
 tenths of inches depending on the configuration UNITS setting. The packet looks like this:
 
      CONTROLLER(0x01, HI, LOW, 0x07)
@@ -262,6 +268,7 @@ The command codes to set these presets are mapped similarly:
     PROGMEM\_1 = 0x03, PROGMEM\_2 = 0x04, PROGMEM\_3 = 0x25 and PROGMEM\_4 = 0x26.
 
 Why not the same?  Is it because 3&4 were added on later, but commands 0x05/0x06 were taken?
+Is bit 5 (0x20) used to signal something special?
 
 ## Configuration commands
 
