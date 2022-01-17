@@ -6,11 +6,30 @@
 #include "JarvisDesk.h"
 #include "TelnetLogger.h"
 
+// You need to define pins for 5 or 6 GPIOs to connect to your Jarvis RJ-45 cable.
+// 4 pins go to the handset buttons. These are the Up, Down, Memory and Presets (1-4) buttons.
+// 2 pins go to the serial TX/RX pins between the handset and the desk controller.
+//   * Since we only receive on these pins, I call them "desk transmit (DTX)" and handset transmit (HTX)
+//   * I don't use the HTX pin for anything useful, so you can choose to leave it out.
+//
+// RJ-45   Signal   Description
+//  pin     ID
+//   1      HS3     Handset control line 3
+//   2      DTX     Serial control messages from controller to handset [2]
+//   3              Ground
+//   4      HTX     Serial control messages from handset to controller [2]
+//   5              Vcc (5vdc) supply from desk controller [3]
+//   6      HS2     Handset control line 2
+//   7      HS1     Handset control line 1
+//   8      HS0     Handset control line 0
+//
 // Pinouts for ESP8266 Oak (which uses these "P" numbers)
 #define HS0   P9
 #define HS1   P8
 #define HS2   P7
 #define HS3   P5
+#define HTX   P4
+#define DTX   P3
 
 extern AdafruitIO_WiFi io;
 
@@ -24,8 +43,8 @@ enum JarvisMessage {
   BUTTON_MEM = 9
 };
 
-SoftwareSerial deskSerial(P3);
-SoftwareSerial hsSerial(P4);
+SoftwareSerial deskSerial(DTX);
+SoftwareSerial hsSerial(HTX);
 
 struct one_shot_timer {
   void reset(unsigned long t_ = 1000) { t = millis() + t_; }
@@ -81,8 +100,8 @@ class JarvisDesk_impl {
     hsSerial.begin(9600);
 
     // Disable pullups turned on by espSoftwareSerial library
-    pinMode(P3, INPUT);
-    pinMode(P4, INPUT);
+    pinMode(DTX, INPUT);
+    pinMode(HTX, INPUT);
     jarvis->get();
   }
 
