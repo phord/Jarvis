@@ -87,6 +87,7 @@ Following are their usage on the desk:
 [4] All the signal lines have 5v pullups provided by the desk controller
 
 ![Interface signal showing "Memory" and "3" being pressed](docs/Wake-3.png)
+
 _In this capture, I pressed "Memory" to wake the screen up, and then 3 to move the desk to position 3._
 
 ## HSx control lines
