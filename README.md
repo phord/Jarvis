@@ -2,13 +2,13 @@
 **Google Assistant:**  Ok. Raising your Jarvis desk.<br/>
 **Desk:** _begins moving obediently_<br/>
 
-### IoT Jarvis standup desk interface
+# IoT Jarvis standup desk interface
 
 **Notice:** This project probably will void your warranty.  Proceed at your own risk.
 
-This is a project to add a computer interface to my [Jarvis stand-up desk from fully.com](https://www.fully.com/standing-desks/jarvis.html). 
+This is a project to add a computer interface to my [Jarvis stand-up desk from fully.com](https://www.fully.com/standing-desks/jarvis.html).
 I reverse-engineered the interface between the desk handset and the desk controller box
-to find out how they communicate. Then I wired an ESP8266 wifi module (like the [Huzzah 
+to find out how they communicate. Then I wired an ESP8266 wifi module (like the [Huzzah
 from Adafruit](https://www.adafruit.com/product/2471)) to a couple of RJ-45
 jacks and plugged it all together.  Now I can snoop on the messages being sent between
 the desk and the handset, inject my own messages to either one, and monitor the desk position
@@ -21,7 +21,7 @@ The desk lowers, and I can put my drink down and continue watching Netflix. To b
 decode the serial interface for this because the buttons used for memory presets are sent on separate
 signal lines. The serial protocol decoding was just for fun.
 
-As a useless side-benefit, you can look back at my [desk's height history](https://io.adafruit.com/phord/feeds/jarvis.height) and see every time it moved up or down and [what preset was used](https://io.adafruit.com/phord/feeds/jarvis.preset).
+As a useless side-benefit, you can look back at my [desk's height history](https://io.adafruit.com/phord/feeds/jarvis.height) and see every time it moved up or down and [what preset was used](https://io.adafruit.com/phord/feeds/jarvis.preset) in the last 30 days.
 And I can control my desk from anywhere on the internet, so I can lower it even if I'm not home, though that
 seems like a bad idea.
 
@@ -51,7 +51,77 @@ Future things:
 [1] Sadly, you can't display random text on your display module, as far as I know.
 But you could make a nice little 3-digit clock or something there, if you wanted.
 
-### Technical notes
+# Software notes:
+
+## Security configuration (REQUIRED)
+
+You will need to edit the `local-config.h` file to include your own WiFi access credentials and your Adafruit IO
+username and API key.
+
+    // AdafruitIO credentials
+    #define IO_USERNAME "your-adafruitio-id"
+    #define IO_KEY "your-adafruitio-api-key-hex"
+
+    // Wifi AP credentials
+    #define WIFI_SSID "wifi-ssid"
+    #define WIFI_PASS "wifi-password"
+
+For your safety (and mine) this file is in the `.gitignore` file for this project to help prevent us from accidentally
+committing password information to the project and sharing it with the world. If you want to keep this config file
+history in your own local git repository, please be aware of this limitation.
+
+## Board configuration (REQUIRED)
+
+You will need to edit the pin definitions in `JarvisDesk.cpp` to match the GPIOs you used on your board. You will need
+6 pins defined.
+
+## Building the code
+
+This code should be able to build with the [Arduino IDE](https://www.arduino.cc/en/software) or the [arduino-cli](https://www.arduino.cc/pro/cli) tool. You will need extra libraries installed to support your target board. This code is written for the ESP8266, so to
+build it as-is, you would need the ESP8266 toolkit, for example. If you use the Adafruit.IO feed you will
+also need to install the Adafruit IO library and its dependencies.
+
+To build with arduino-cli, do this:
+
+    arduino-cli compile -b esp8266:esp8266:oak .
+
+
+## OTA Software Upload
+
+The code here supports Over-the-Air (OTA) program upload using the ESP8266 "espota.py" tool or the ArduinoIDE.
+Once a version of this code is booted and running on the board, future updates can be uploaded with the OTA update.
+
+In the Arduino IDE, OTA upload can be done by changing the port from the serial port to the Jarvis (network) port
+here:
+    ArduinoIDE > Tools > Port : Jarvis
+If the device is online and connected to your network, it should show up in the Port menu under "Network ports".
+
+To upload using the espota utility:
+
+    $HOME/.arduino15/packages/esp8266/hardware/esp8266/3.0.2/tools/espota.py -i jarvis.local -p 8266 -f Jarvis.ino.bin
+
+
+## Telnet interface
+
+The code runs a telnet interface for debug output. This is mostly for convenience, but it also frees up the serial port
+pins for use as GPIO pins to connect to the desk.
+
+Telnet to `jarvis.local` on port 23 to see the debug logs.
+
+    telnet jarvis.local
+
+## Board wiring
+
+**WARNING: This is the part that probably voids your warranty.**
+
+The 6 GPIO pins you chose on the ESP8266 board should be wired to the RJ-45 signal pins on your desk.
+In addition, you will need to wire the RJ-45 GND pin (pin 3) to your controller ground, and for convenience
+you can wire the RJ-45 VCC (pin 5) to your controller's VCC to power it when it's not connected to external power.
+
+See [this discussion](https://github.com/phord/Jarvis/discussions/8) for notes on how I wired up my board.
+
+# Technical notes
+## Hardware
 
 The Jarvis desk handset style I have is the touchpanel interface with memories.  You can surely use
 the desk without this interface if you design your own, but you need to know the protocols.  I
@@ -60,6 +130,11 @@ will try to publish what I discovered through reverse-engineering here.
 * Handset model: JCHT35M16-1
 * Desk controller model: FullyCB2C-A
 
+Note: Other desk owners have mentioned that the simple 2-button handset interface uses a different
+desk controller (model: JCB35N2) but has the same electrical interface. However the serial interface uses
+a different protocol. You can find some details in the [JCB35N2 controller protocol discussion](https://github.com/phord/Jarvis/discussions/4).
+It's a bit exciting that the basic and advanced models both seem to support both protocols in some form, but so far
+I don't know how to switch between them on either controller.
 ## Physical interface
 
 The interface from the handset to the controller is via an RJ-45 8-pin connector (like an ethernet
@@ -73,9 +148,9 @@ Following are their usage on the desk:
 | Pin | Label | Description
 | --- | ----- | --------------------------------------
 |  1  |  HS3  | Handset control line 3 [1]
-|  2  |  Tx   | Serial control messages from controller to handset [2]
+|  2  |  DTX  | Serial control messages from controller to handset [2]
 |  3  |  GND  | Ground
-|  4  |  Rx   | Serial control messages from handset to controller [2]
+|  4  |  HTX  | Serial control messages from handset to controller [2]
 |  5  |  VCC  | Vcc (5vdc) supply from desk controller [3]
 |  6  |  HS2  | Handset control line 2 [1]
 |  7  |  HS1  | Handset control line 1 [1]
@@ -90,19 +165,30 @@ Following are their usage on the desk:
 
 _In this capture, I pressed "Memory" to wake the screen up, and then 3 to move the desk to position 3._
 
+## Interfacing with 5 volts
+
+The desk provides 5v pullups on all six signal lines. A "mark" is signaled by pulling the line low.
+
+The ESP8266 microcontroller is only capable of outputting 3.3v on its GPIOs. But I don't need to pull
+any of these pins high to 5v because the desk does that for me. I only need to pull these signals low
+to 0.0v.
+
+It is safe to _sink_ 5v on these GPIO pins on the ESP8266, so long as the carrier board doesn't
+mind the extra voltage. Opinions vary on this topic, though. You may feel safer using a level shifter
+or some transistor or diode assistance to pull these 5v signals low on your board. Doing this is beyond
+my expertise, though, so I'm afraid I can't help you with this part if you choose to go this route.
+
 ## HSx control lines
 
-The desk provides 5v pullups on all these signal lines. A mark is signaled by pulling the line low.
-
-On the mechanical desk control buttons, when you press the up button, one of these lines is
-pulled low.  Similarly when you press the down button, another line is pulled low.  When you
+On the mechanical desk control buttons, when you press the up button, one of the HS[0-2] lines is
+pulled low. Similarly when you press the down button, another line is pulled low. When you
 use a smart controller interface like the touch-screen model, multiple lines may be pulled
 low simultaneously to indicate up to 7 different buttons.  If you combine the first three
 lines' inverted logical signals, you will find a "button number" between 0 and 7 is possible.
 
-Note: HS3 seems to be a special line used only for Memory Button signaling.
-
 Zero means no button is being pressed.  This is "open".
+
+Note: HS3 seems to be a special line used only for Memory Button signaling.
 
          Down  Up  1  2  3  4  M
     HS3                        X
@@ -122,11 +208,13 @@ Translated into binary, these buttons send these codes:
 | 4      |   6   |
 | M      |   9   |  (always sent as two 30ms pulses)
 
-## UART control lines
+## UART protocol
 
 The Jarvis UART signaling protocol sends checksummed control packets consisting of between 6
-and 9 bytes. All data is sent using 9600 bps, 8 data bits, no parity (9600/8N1). Desk controller
-sends data on Tx, handset sends data on Rx.  Command packets are the same format on both.
+and 9 bytes. All data is sent using 9600 bps, 8 data bits, no parity (9600/8N1). The desk controller
+sends data on DTX; the handset sends data on HTX. Command packets are the same format on both.
+
+    [address] [command] [length] [params] [checksum] [eom]
 
 | Field    | Octets  | Description
 | -------- | ------- | ---------------------------------
@@ -149,11 +237,11 @@ The checksum is the low-byte sum of the all the payload bytes.  In pseudocode,
 The EOM byte is always 0x7E.
 
 I will use a shorthand to refer to these packets later. The desk controller packets will be
-given as CONTROLLER(COMMAND, PARAMS, ...) and the handset packets will be given as
-HANDSET(COMMAND, PARAMS...).  PARAMS are given as P0 for the first byte, P1 for the second,
-etc.  16-bit params are indicated like {P0,P1}. Optional params are shown in brackets.
+given as `CONTROLLER(COMMAND, PARAMS, ...)` and the handset packets will be given as
+`HANDSET(COMMAND, PARAMS...)`.  `PARAMS` are given as `P0` for the first byte, `P1` for the second,
+etc.  16-bit params are indicated like `{P0,P1}`. Optional params are shown in brackets.
 
-For example, the HANDSET(0x29) message is sent from the handset to the desk.  It represents
+For example, the `HANDSET(0x29)` message is sent from the handset to the desk.  It represents
 this sequence of 6 bytes:
 
     F1  F1     29       00       29          7E
@@ -161,20 +249,9 @@ this sequence of 6 bytes:
 
 ## Startup sequence
 
-Smart handset sends a NULL (0x00) byte on first startup.  If no response is received from the
-desk controller, it sends a 230ms BREAK signal followed by another 0x00 byte. If still no
-response is received, it begins sending HANDSET(0x29) repeatedly.
-
-       [addr] [addr] [cmd] [length] [params] [chksum] [EOM]
-
-        field  size   description
-        addr      1   Sent twice at start of each message.
-                      0xF2 for desk controller; 0xF1 for Handset
-        cmd       1   See "Known Commands"
-        length    1   Count of bytes in [params], 0..3
-        params 0..3   Parameter bytes for cmd
-        chksum    1   Simple checksum of [cmd, length, params]
-        EOM       1   0x7E
+Smart handset sends a `NULL (0x00)` byte on first startup.  If no response is received from the
+desk controller, it sends a 230ms BREAK signal followed by another `NULL` byte. If still no
+response is received, it begins sending `HANDSET(0x29)` repeatedly.
 
 ## Known Commands
 
@@ -246,33 +323,45 @@ desk height. It sends this several dozen times while the display is on.  The hei
 as a two-byte word (HI, LOW) which make up the desk's height.  The units are in millimeters or
 tenths of inches depending on the configuration UNITS setting. The packet looks like this:
 
-     CONTROLLER(0x01, HI, LOW, 0x07)
+    CONTROLLER(0x01, HI, LOW, 0x07)
 
-For example, to indicate 128.6cm (1286mm), the desk sends CONTROLLER(0x01, 0x05, 0x06, 0x07),
+For example, to indicate 128.6cm (1286mm), the desk sends `CONTROLLER(0x01, 0x05, 0x06, 0x07)`,
 because 0x0506 = 1286 in decimal.  I don't know what the third parameter is here (0x07).  Sometimes
-it's 0x0F.  More experimenting needed.
+it's 0x0F.  More experimenting is needed.
 
 ## Memory setting
 
-Memories are programmed by sending one of the PROGMEM\_\* commands to the controller.  Each
+Memories are programmed by sending one of the `PROGMEM_*` commands to the controller.  Each
 command takes no parameters but sets the memory to the current height of the desk.
 
 The desk does not acknowledge the setting.
 
-## Preset buttons
+## Preset buttons observation
 
-When a Preset button is pressed (not in a programming mode) the lines HS0..HS3 are signaled as
+When a Preset button is pressed (not in a programming mode) the lines `HS0`..`HS3` are signaled as
 shown above in *HSx control lines*. Notice that the binary pattern flagged in those pins maps
-1 to 0x03, 2 to 0x04, 3 to 0x05 and 4 to 0x06.
+preset button 1 to 0x03, 2 to 0x04, 3 to 0x05 and 4 to 0x06.
 
-The command codes to set these presets are mapped similarly:
-    PROGMEM\_1 = 0x03, PROGMEM\_2 = 0x04, PROGMEM\_3 = 0x25 and PROGMEM\_4 = 0x26.
+The command codes to set these presets are mapped similarly, but not identically:
 
-Why not the same?  Is it because 3&4 were added on later, but commands 0x05/0x06 were taken?
+    PROGMEM_1 = 0x03, PROGMEM_2 = 0x04, PROGMEM_3 = 0x25 and PROGMEM_4 = 0x26
+
+Why not the same?  Is it because buttons 3 and 4 were added on later, but commands 0x05/0x06 were already used?
 Is bit 5 (0x20) used to signal something special?
 
 ## Configuration commands
 
-See the table above for the short version.  Each command may or may not be sent multiple times and 
+See the table above for the short version.  Each command may or may not be sent multiple times and
 have a different stream of responses from the other side.  I'll try to document my findings about
 these anomalies here later.
+
+# DigiStump Oak notes
+
+Robodesk Jarvis v1 was built with a DigiStump Oak. I don't recommend these boards since they seem to have stopped
+making them a few years ago. But I leave these notes here for myself:
+
+Install using the ESP8266 Community package here: https://arduino.esp8266.com/stable/package_esp8266com_index.json
+
+First time programming: Connect P2 to GND to start Oak in serial program mode
+
+Thereafter, use the OTA Software Upload described above.
