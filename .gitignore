@@ -2,3 +2,4 @@
 src/local-config.h
 probe
 .vscode/
+.*/
