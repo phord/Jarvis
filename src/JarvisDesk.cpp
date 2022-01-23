@@ -6,11 +6,12 @@
 #include "JarvisDesk.h"
 #include "TelnetLogger.h"
 
-// You need to define pins for 5 or 6 GPIOs to connect to your Jarvis RJ-45 cable.
-// 4 pins go to the handset buttons. These are the Up, Down, Memory and Presets (1-4) buttons.
+// You need to define pins for 4 to 6 GPIOs to connect to your Jarvis RJ-45 cable.
+// 4 pins go to the handset buttons. These encode the Up, Down, Memory and Presets (1-4) buttons.
 // 2 pins go to the serial TX/RX pins between the handset and the desk controller.
 //   * Since we only receive on these pins, I call them "desk transmit (DTX)" and handset transmit (HTX)
-//   * I don't use the HTX pin for anything useful, so you can choose to leave it out.
+//   * HTX is optional; I only use this for experimenting with the handset serial commands.
+//   * HS3 is optional; it is not needed for controlling the Jarvis Desk, afaict.
 //
 // RJ-45   Signal   Description
 //  pin     ID
@@ -26,8 +27,8 @@
 // Pinouts for ESP8266 Oak (which uses these "P" numbers)
 #define HS0   P9
 #define HS1   P8
-#define HS2   P7
-#define HS3   P5
+#define HS2   P10
+#define HS3   P2
 #define HTX   P4
 #define DTX   P3
 
