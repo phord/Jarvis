@@ -1,5 +1,5 @@
 BUILD_DIR = ../build
-BOARD = esp8266:esp8266:oak
+BOARD = esp8266:esp8266:d1_mini
 
 # Serial uploads
 UPLOAD_PORT = /dev/ttyUSB1

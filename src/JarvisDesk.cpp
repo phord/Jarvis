@@ -24,13 +24,13 @@
 //   7      HS1     Handset control line 1
 //   8      HS0     Handset control line 0
 //
-// Pinouts for ESP8266 Oak (which uses these "P" numbers)
-#define HS0   P9
-#define HS1   P8
-#define HS2   P10
-#define HS3   P2
-#define HTX   P4
-#define DTX   P3
+// Pinouts for ESP8266 Wemos D1 mini
+#define HS0   D5
+#define HS1   D0
+#define HS2   D6
+#define HS3   D1
+#define HTX   D3
+#define DTX   D2
 
 extern AdafruitIO_WiFi io;
 
