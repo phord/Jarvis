@@ -5,32 +5,7 @@
 
 #include "JarvisDesk.h"
 #include "TelnetLogger.h"
-
-// You need to define pins for 4 to 6 GPIOs to connect to your Jarvis RJ-45 cable.
-// 4 pins go to the handset buttons. These encode the Up, Down, Memory and Presets (1-4) buttons.
-// 2 pins go to the serial TX/RX pins between the handset and the desk controller.
-//   * Since we only receive on these pins, I call them "desk transmit (DTX)" and handset transmit (HTX)
-//   * HTX is optional; I only use this for experimenting with the handset serial commands.
-//   * HS3 is optional; it is not needed for controlling the Jarvis Desk, afaict.
-//
-// RJ-45   Signal   Description
-//  pin     ID
-//   1      HS3     Handset control line 3
-//   2      DTX     Serial control messages from controller to handset [2]
-//   3              Ground
-//   4      HTX     Serial control messages from handset to controller [2]
-//   5              Vcc (5vdc) supply from desk controller [3]
-//   6      HS2     Handset control line 2
-//   7      HS1     Handset control line 1
-//   8      HS0     Handset control line 0
-//
-// Pinouts for ESP8266 Wemos D1 mini
-#define HS0   D5
-#define HS1   D0
-#define HS2   D6
-#define HS3   D1
-#define HTX   D3
-#define DTX   D2
+#include "jarvis_pinouts.h"
 
 extern AdafruitIO_WiFi io;
 
@@ -97,12 +72,16 @@ class JarvisDesk_impl {
   public:
   void begin() {
     jarvis = io.group("jarvis");
-    deskSerial.begin(9600);
-    hsSerial.begin(9600);
+    if (is_pin_connected(DTX))
+        deskSerial.begin(9600);
+    if (is_pin_connected(HTX))
+        hsSerial.begin(9600);
 
     // Disable pullups turned on by espSoftwareSerial library
-    pinMode(DTX, INPUT);
-    pinMode(HTX, INPUT);
+    if (is_pin_connected(DTX))
+        pinMode(DTX, INPUT);
+    if (is_pin_connected(HTX))
+        pinMode(HTX, INPUT);
     jarvis->get();
   }
 
@@ -143,12 +122,19 @@ class JarvisDesk_impl {
     return true;
   }
 
+  bool readPin(int pin) {
+      if (is_pin_connected(pin)) {
+          return digitalRead(pin);
+      }
+      return true;     // pretend NC pins are pulled up
+  }
+
   JarvisMessage getMessage() {
     unsigned btn =
-      !digitalRead(HS0) * 1 +
-      !digitalRead(HS1) * 2 +
-      !digitalRead(HS2) * 4;
-      // + !digitalRead(HS3) * 8;  Not wired in yet
+      !readPin(HS0) * 1 +
+      !readPin(HS1) * 2 +
+      !readPin(HS2) * 4 +
+      !readPin(HS3) * 8;
 
     return static_cast<JarvisMessage>(btn);
   }
@@ -175,13 +161,17 @@ private:
   bool pending_stop = false;
 
   void latch_pin(int pin) {
-    pinMode(pin, OUTPUT);
-    digitalWrite(pin, LOW);
+    if (is_pin_connected(pin)) {
+        pinMode(pin, OUTPUT);
+        digitalWrite(pin, LOW);
+    }
   }
 
   void unlatch_pin(int pin) {
-    pinMode(pin, INPUT);
-    digitalWrite(pin, HIGH);
+    if (is_pin_connected(pin)) {
+        pinMode(pin, INPUT);
+        digitalWrite(pin, HIGH);
+    }
   }
 
   void io_set(const char * field, unsigned long value) {
@@ -524,22 +514,26 @@ private:
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
-    while (deskSerial.available()) {
-      auto ch = deskSerial.read();
-      if (deskPacket.put(ch)) {
-        deskPacket.decode(*this);
+      if (is_pin_connected(DTX)) {
+          while (deskSerial.available()) {
+              auto ch = deskSerial.read();
+              if (deskPacket.put(ch)) {
+                  deskPacket.decode(*this);
+              }
+          }
       }
-    }
 
-    while (hsSerial.available()) {
-      auto ch = hsSerial.read();
-      if (hsPacket.put(ch)) {
-        hsPacket.decode(*this);
+      if (is_pin_connected(DTX)) {
+          while (hsSerial.available()) {
+              auto ch = hsSerial.read();
+              if (hsPacket.put(ch)) {
+                  hsPacket.decode(*this);
+              }
+          }
       }
-    }
   }
-};
 
+};
 
 //-- JarvisDesk API interface
 JarvisDesk::JarvisDesk() {

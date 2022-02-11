@@ -72,8 +72,9 @@ history in your own local git repository, please be aware of this limitation.
 
 ## Board configuration (REQUIRED)
 
-You will need to edit the pin definitions in `JarvisDesk.cpp` to match the GPIOs you used on your board. You will need
-6 pins defined.
+You will need to edit the pin definitions in `jarvis_pinouts.h` to match the GPIOs you used on your board. You will need
+6 pins defined. You can use one of the existing layouts defined there by uncommenting the correct #define directive, or
+you may choose your own pin layout by adding your own customized version with the `DEFINE_PINS` macro.
 
 ## Building the code
 
