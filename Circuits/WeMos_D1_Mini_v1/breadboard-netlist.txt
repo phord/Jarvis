@@ -1,0 +1,20 @@
+Terminal||38|438|1||TS?||8|4|Terminals||terminal_481
+Note||30|524|2||||2||RJ-45 Connectors||NOTEPAD_22
+Wire||101|312|21||11|#000000|3|11||10|
+Wire||155|339|21||11|#FF0000|2|11||10|
+Terminal||631|411|1||TS?||8|4|Terminals||terminal_481
+Terminal||631|658|1||TS?||8|4|Terminals||terminal_481
+Note||706|516|2||||2||wifi-[Wemos D1 Mini]-usb||NOTEPAD_22
+Wire||829|339|21||11|#FF0000|2|11||10|
+Wire||802|312|21||11|#000000|3|11||10|
+Wire||76|478|13||11|#3253FF|24|11||10|
+Wire||130|466|12||11|#A233C3|23|11||10|
+Wire||49|383|12||11|#FFFF00|24|11||10|
+Wire||182|504|21||11|#FFFF00|3|11||10|
+Wire||209|504|21||11|#FFFF00|3|11||10|
+Wire||236|504|21||11|#FFFF00|3|11||10|
+Wire||184|695|11||11|#FFFF00|21|11||10|
+Wire||211|640|11||11|#FFFF00|18|11||10|
+Wire||238|612|11||11|#FFFF00|18|11||10|
+BREADBOARDSTYLE=BB12
+SHOWTHETOPAREA=true
