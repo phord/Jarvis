@@ -21,7 +21,6 @@ Ota ota;
 
 // FIXME: Move to flasher.h
 void flash(unsigned count = 0, float secs = 0.3);
-void momentary(unsigned preset);
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
@@ -31,7 +30,6 @@ void setup() {
   Jarvis.begin();
 
   jarvis_sub->onMessage("preset", handlePreset);
-  jarvis_sub->onMessage(handleMessage);
 
   flash(0, 0.5);
   while(io.status() < AIO_CONNECTED) {
@@ -60,16 +58,6 @@ void loop() {
   ota.loop();
 
 }
-
-    // Handle messages from AdafruitIO
-    void handleMessage(AdafruitIO_Data *data)
-    {
-    //  Serial.print("received <- ");
-    //  Serial.print(data->value());
-    //  Serial.print(" from ");
-    //  Serial.println(data->feedName());
-    //  Serial.println(data->toCSV());
-    }
 
 // Handle messages from AdafruitIO
 void handlePreset(AdafruitIO_Data *data)
