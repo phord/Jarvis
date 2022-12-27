@@ -4,9 +4,9 @@
 #include "Arduino.h"
 
 struct JarvisDesk_impl;
-class JarvisDesk {
-    public:
-
+class JarvisDesk
+{
+public:
     JarvisDesk();
     ~JarvisDesk();
 
@@ -14,9 +14,10 @@ class JarvisDesk {
     void run();
     void report();
     void goto_preset(int p);
+    void reset(); // reset and relevel the desk
 
 private:
-    JarvisDesk_impl * jarvis;
+    JarvisDesk_impl *jarvis;
 };
 
 #endif

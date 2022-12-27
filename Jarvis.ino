@@ -1,4 +1,4 @@
-#include <Ticker.h>
+// #include <Ticker.h>
 
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
@@ -22,8 +22,12 @@ Ota ota;
 // FIXME: Move to flasher.h
 void flash(unsigned count = 0, float secs = 0.3);
 
-void setup() {
+void setup()
+{
   pinMode(LED_PIN, OUTPUT);
+
+  Serial.begin(9600);
+  Serial.println("Serial init");
 
   io.connect();
 
@@ -32,7 +36,8 @@ void setup() {
   jarvis_sub->onMessage("preset", handlePreset);
 
   flash(0, 0.5);
-  while(io.status() < AIO_CONNECTED) {
+  while (io.status() < AIO_CONNECTED)
+  {
     delay(100);
   }
 
@@ -42,12 +47,15 @@ void setup() {
 
   Log.begin();
   jarvis_sub->get();
-
 }
 
-void loop() {
+void loop()
+{
   // Run the AdafruitIO Service
   io.run();
+
+  if (Serial.available())
+    onSerialInput();
 
   // run the Jarvis desk interface
   Jarvis.run();
@@ -56,7 +64,6 @@ void loop() {
 
   // Run the OTA Updater Service
   ota.loop();
-
 }
 
 // Handle messages from AdafruitIO
@@ -69,4 +76,38 @@ void handlePreset(AdafruitIO_Data *data)
 
   // Press the button
   Jarvis.goto_preset(preset);
+  Jarvis.report();
+}
+
+void onSerialInput()
+{
+  char ch = Serial.read();
+
+  if (ch == 0x72)
+  {
+    Log.println(">SMSG: Reset");
+
+    Serial.print("MSG: Reset ");
+    Serial.println(ch);
+
+    Jarvis.reset();
+    return;
+  }
+
+  uint preset = ch - '0';
+
+  if (preset > 0 && preset < 5)
+  { // preset 1-4
+    Log.println(">SMSG: ", preset);
+
+    Serial.print(">MSG: Preset ");
+    Serial.println(preset);
+
+    flash(preset, 0.25);
+
+    // Press the button
+    Jarvis.goto_preset(preset);
+  }
+
+  Jarvis.report();
 }
