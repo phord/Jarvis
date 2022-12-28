@@ -15,6 +15,7 @@ public:
     void report();
     void goto_preset(int p);
     void reset(); // reset and relevel the desk
+    void press_Memory(int duration);
 
 private:
     JarvisDesk_impl *jarvis;

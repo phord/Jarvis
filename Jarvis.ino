@@ -76,21 +76,30 @@ void handlePreset(AdafruitIO_Data *data)
 
   // Press the button
   Jarvis.goto_preset(preset);
-  Jarvis.report();
+    Jarvis.report();
 }
 
 void onSerialInput()
 {
   char ch = Serial.read();
 
-  if (ch == 0x72)
+  if (ch == 'r')
   {
     Log.println(">SMSG: Reset");
 
-    Serial.print("MSG: Reset ");
-    Serial.println(ch);
+    Serial.print("MSG: Reset");
 
     Jarvis.reset();
+    return;
+  }
+
+  if (ch == 'm')
+  {
+    Log.println(">SMSG: Virtual Memory Press");
+
+    Serial.print("MSG: Virtual Memory Press");
+
+    Jarvis.press_Memory(10000);
     return;
   }
 
@@ -98,7 +107,7 @@ void onSerialInput()
 
   if (preset > 0 && preset < 5)
   { // preset 1-4
-    Log.println(">SMSG: ", preset);
+    Log.println(">SMSG: Preset ", preset);
 
     Serial.print(">MSG: Preset ");
     Serial.println(preset);

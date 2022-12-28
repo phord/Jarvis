@@ -7,6 +7,8 @@
 #include "TelnetLogger.h"
 #include "jarvis_pinouts.h"
 
+#define JCB35N2
+
 extern AdafruitIO_WiFi io;
 
 enum JarvisMessage
@@ -110,10 +112,7 @@ public:
         if (!pending_stop)
         {
           // Press the memory once to try to stop our motion
-          latch_pin(HS0);
-          latch_pin(HS3);
-          pending_stop = true;
-          latch_timer.reset(30);
+          press_Memory();
         }
       }
       else
@@ -131,6 +130,13 @@ public:
     if (latch_timer.trigger())
     {
       unlatch();
+      if (pending_mem_hold)
+      {
+        latch_pin(HS0);
+        latch_pin(HS3);
+        latch_timer.reset(pending_mem_hold);
+        pending_mem_hold = 0;
+      }
       if (pending_reset)
       {
         // Press and hold down for 5 seconds to re-level after reset
@@ -143,6 +149,16 @@ public:
 
     // Publish pending updates periodically to AdafruitIO
     io_send();
+  }
+
+  void press_Memory(int duration = 30)
+  {
+    latch_pin(HS0);
+    latch_pin(HS3);
+    pending_stop = true;
+    latch_timer.reset(30);
+    pending_mem_hold = duration;
+    Log.println("Pressing memory for ", duration, "ms");
   }
 
   bool goto_preset(int p)
@@ -202,12 +218,11 @@ public:
   one_shot_timer io_timer;       // prevent overloading AdafruitIO
 
   bool io_pending = false;
-
-private:
   AdafruitIO_Group *jarvis = nullptr;
 
   // The preset we are commanded to go to next, if any
   unsigned char pending_preset = 0;
+  unsigned int pending_mem_hold = 0;
   bool pending_stop = false;
   bool pending_reset = false;
 
@@ -288,8 +303,13 @@ private:
     if (preset & 8)
       latch_pin(HS3);
   }
+#if defined(JCB35N2)
+#define CONTROLLER 0x01
 
+#else
 #define CONTROLLER 0xF2
+#endif
+
 #define HANDSET 0xF1
 
   void set_preset(unsigned char p)
@@ -310,9 +330,8 @@ private:
       Log.println(h);
       return;
     }
-
     h = Util::to_mm(h);
-    if (height == h)
+    if (height == h || h > 1300)
       return;
     height = h;
     height_changed.reset(700);
@@ -338,6 +357,19 @@ private:
     /** Note: Most of these commands are sent only from the desk controller or from
               the handset.  They are collected here in one enum for simplicity.
     **/
+
+#if defined(JCB35N2)
+    enum command_byte
+    {
+      // FAKE
+      NONE = 0x00, // Unused/never seen; used as default for "Uninitialized"
+
+      // CONTROLLER
+      HEIGHT = 0x01, // Height report
+      ERROR = 0x02,
+      SESSION = 0x06, // Session request
+    };
+#else
     enum command_byte
     {
       // FAKE
@@ -366,8 +398,11 @@ private:
       WAKE = 0x29,      // Poll message (??) sent when desk doesn't respond to BREAK messages
       CALIBRATE = 0x91, // Height calibration (Repeats 2x)
     };
+#endif
 
-    cmdPacket(unsigned char addr_) : addr(addr_) {}
+    cmdPacket(unsigned char addr_) : addr(addr_)
+    {
+    }
 
     command_byte cmd = NONE;
     unsigned char addr;
@@ -381,9 +416,9 @@ private:
       CMD,    // waiting for cmd
       LENGTH, // waiting for argc
       // ARGS4,3,2,1   // collecting args
-      ARGS = LENGTH + sizeof(argv), // collecting args
-      CHKSUM,                       // waiting for checksum
-      ENDMSG,                       // waiting for EOM
+      ARGS = sizeof(argv), // LENGTH + sizeof(argv), // collecting args
+      CHKSUM,              // waiting for checksum
+      ENDMSG,              // waiting for EOM
     } state = SYNC;
 
     bool error(unsigned char ch)
@@ -395,6 +430,57 @@ private:
       return false;
     }
 
+    void reset()
+    {
+      state = SYNC;
+      cmd = NONE;
+      argc = 0;
+      memset(argv, 0U, sizeof(argv));
+    }
+#if defined(JCB35N2)
+    bool put(unsigned char ch)
+    {
+      bool complete = false;
+
+      switch (state)
+      {
+      case SYNC:
+        if (ch != addr)
+          return error(ch);
+        break;
+
+      case CMD:
+        if (ch == 5) // end of stream
+          return error(ch);
+        if (ch != 1 && ch != 2 && ch != 6)
+        {
+          Log.println("Bad cmd: ", ch);
+          return error(ch);
+        }
+        cmd = static_cast<cmdPacket::command_byte>(ch); // was checksum = ch
+        break;
+
+      default: // ARGS, state increased by 2 each time
+        if (state < 4 || state > 6)
+        { // only 2 args seen
+          Log.println("Arg mismatch");
+          Log.println("cmd: ", cmd);
+          for (int i = 0; i <= state - 2; i++)
+            Log.println("argv[", i, "]: ", argv[i]);
+
+          return error(ch);
+        }
+        argv[argc++] = ch;
+
+        if (argc == 2)
+          complete = true;
+        break;
+      }
+      state = static_cast<state_t>(state + 2);
+
+      return complete;
+    }
+#else
     bool put(unsigned char ch)
     {
       bool complete = false;
@@ -408,12 +494,10 @@ private:
         break;
 
       case CMD:
-        Log.print("State: CMD");
-        cmd = static_cast<cmdPacket::command_byte>(checksum = ch);
+        cmd = static_cast<cmdPacket::command_byte>(ch); // was checksum = ch
         break;
 
       case LENGTH:
-        Log.print("State: LENGTH");
         if (ch > sizeof(argv))
           return error(ch);
         checksum += (argc = ch);
@@ -421,32 +505,30 @@ private:
         break;
 
       default: // ARGS
-        Log.print("State: ARGS");
         if (state <= LENGTH || state > ARGS)
           return error(ch); // assert(ARGS);
         checksum += (argv[argc - (CHKSUM - state)] = ch);
         break;
 
       case CHKSUM:
-        Log.print("State: CHKSUM");
-        if (ch != checksum)
-          return error(ch);
+        // if (ch != checksum)
+        //   return error(ch);
         complete = true;
         break;
 
       case ENDMSG:
-        Log.print("State: ENDMSG");
         return error(ch); // We do the same here whether it's an error or not
       }
       // Common increment for every state
       state = static_cast<state_t>(state + 1);
-      Log.print("State: ", state);
       if (state < SYNC || state > ENDMSG)
         return error(ch); // assert(state);
       return complete;
     }
+#endif
 
-    void print_choice(int n, std::vector<const char *> args)
+    void
+    print_choice(int n, std::vector<const char *> args)
     {
       if (n < args.size())
         Log.println(args[n]);
@@ -466,7 +548,50 @@ private:
       else
         print_choice(argv[0], {args...});
     }
+#if defined(JCB35N2)
+    void decode(JarvisDesk_impl &parent)
+    {
+      switch (cmd)
+      {
+      case NONE:
+        break;
 
+        // CONTROLLER commands
+      case HEIGHT:
+        if (argc >= 2)
+        {
+          parent.set_height(Util::getword(argv[0], argv[1]));
+          return;
+        }
+        Log.println("set-height: not enough args?");
+        break;
+
+      case ERROR:
+        if (argc != 2)
+        {
+          Log.println("Error: unknown");
+          return;
+        }
+        if (argv[0] == 0 && argv[1] == 0x80)
+          Log.println("Desk Height Locked");
+
+        if (argv[0] == 0x80 && argv[1] == 0)
+          Log.println("Error: E08");
+
+        return;
+
+      case SESSION: // only known code for comand 6: 1 6 0 0
+        Log.println("Session Probe?");
+        return;
+
+      // Unrecognized:
+      default:
+        Log.print("UNKNOWN COMMAND: ");
+        break;
+      }
+      dump();
+    }
+#else
     void decode(JarvisDesk_impl &parent)
     {
       switch (cmd)
@@ -594,6 +719,7 @@ private:
       }
       dump();
     }
+#endif
 
     void dump()
     {
@@ -627,18 +753,16 @@ private:
       while (deskSerial.available())
       {
         auto ch = deskSerial.read();
-        Log.print_hex(ch);
-        Log.print(" ");
+
         if (deskPacket.put(ch))
         {
-          Log.println("Desk is ready to decode");
           deskPacket.decode(*this);
+          deskPacket.reset();
         }
-        Log.println();
       }
     }
 
-    if (is_pin_connected(DTX))
+    if (is_pin_connected(HTX))
     {
       while (hsSerial.available())
       {
@@ -687,4 +811,10 @@ void JarvisDesk::report()
 void JarvisDesk::goto_preset(int p)
 {
   jarvis->goto_preset(p);
+}
+
+void JarvisDesk::press_Memory(int duration = 30)
+{
+  jarvis->press_Memory(duration);
+  JarvisDesk::report();
 }
