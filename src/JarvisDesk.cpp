@@ -161,7 +161,7 @@ public:
 
   void reset()
   {
-    Press and hold down for 10 seconds
+    // Press and hold down for 10 seconds
     latch_pin(HS0);
     latch_timer.reset(10000);
     pending_reset = true;
@@ -627,12 +627,14 @@ private:
       while (deskSerial.available())
       {
         auto ch = deskSerial.read();
-        Log.println(ch);
+        Log.print_hex(ch);
+        Log.print(" ");
         if (deskPacket.put(ch))
         {
           Log.println("Desk is ready to decode");
           deskPacket.decode(*this);
         }
+        Log.println();
       }
     }
 
