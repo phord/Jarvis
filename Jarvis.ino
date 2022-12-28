@@ -14,7 +14,7 @@
 const int LED_PIN = LED_BUILTIN;
 
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
-AdafruitIO_Group *jarvis_sub = io.group("jarvis");
+AdafruitIO_Group* jarvis_sub = io.group("jarvis");
 
 JarvisDesk Jarvis;
 Ota ota;
@@ -22,8 +22,7 @@ Ota ota;
 // FIXME: Move to flasher.h
 void flash(unsigned count = 0, float secs = 0.3);
 
-void setup()
-{
+void setup() {
   pinMode(LED_PIN, OUTPUT);
 
   Serial.begin(9600);
@@ -36,8 +35,7 @@ void setup()
   jarvis_sub->onMessage("preset", handlePreset);
 
   flash(0, 0.5);
-  while (io.status() < AIO_CONNECTED)
-  {
+  while (io.status() < AIO_CONNECTED) {
     delay(100);
   }
 
@@ -49,8 +47,7 @@ void setup()
   jarvis_sub->get();
 }
 
-void loop()
-{
+void loop() {
   // Run the AdafruitIO Service
   io.run();
 
@@ -67,8 +64,7 @@ void loop()
 }
 
 // Handle messages from AdafruitIO
-void handlePreset(AdafruitIO_Data *data)
-{
+void handlePreset(AdafruitIO_Data* data) {
   Log.println(">MSG: ", data->feedName(), "=", data->toString());
 
   auto preset = data->toInt();
@@ -76,15 +72,13 @@ void handlePreset(AdafruitIO_Data *data)
 
   // Press the button
   Jarvis.goto_preset(preset);
-    Jarvis.report();
+  Jarvis.report();
 }
 
-void onSerialInput()
-{
+void onSerialInput() {
   char ch = Serial.read();
 
-  if (ch == 'r')
-  {
+  if (ch == 'r') {
     Log.println(">SMSG: Reset");
 
     Serial.print("MSG: Reset");
@@ -93,8 +87,7 @@ void onSerialInput()
     return;
   }
 
-  if (ch == 'm')
-  {
+  if (ch == 'm') {
     Log.println(">SMSG: Virtual Memory Press");
 
     Serial.print("MSG: Virtual Memory Press");
@@ -105,8 +98,7 @@ void onSerialInput()
 
   uint preset = ch - '0';
 
-  if (preset > 0 && preset < 5)
-  { // preset 1-4
+  if (preset > 0 && preset < 5) { // preset 1-4
     Log.println(">SMSG: Preset ", preset);
 
     Serial.print(">MSG: Preset ");

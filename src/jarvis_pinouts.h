@@ -1,6 +1,11 @@
 #pragma once
 #include <Arduino.h>
 
+// There are a few different protocols for controllers.
+// Uncomment the one you have.
+// Uplift Desk V2
+#define JCB35N2
+
 // You need to define pins for 4 to 6 GPIOs to connect to your Jarvis RJ-45 cable.
 // 4 pins go to the handset buttons. These encode the Up, Down, Memory and Presets (1-4) buttons.
 // 2 pins go to the serial TX/RX pins between the handset and the desk controller.
@@ -66,7 +71,6 @@ DEFINE_PINS(D5, D2, D1, D0, D6, D7);
 DEFINE_PINS(D4, D7, D8, D6, D1, D2);
 #endif
 
-inline bool is_pin_connected(int pin)
-{
+inline bool is_pin_connected(int pin) {
     return pin != NC;
 }
