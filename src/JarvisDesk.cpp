@@ -284,7 +284,8 @@ public:
       return;
     }
     h = Util::to_mm(h);
-    if (height == h || h > 1300)
+    if (height == h || height < 640 || h > 1300)
+      // if it is the same or out of range for this desk
       return;
     height = h;
     height_changed.reset(700);
@@ -316,6 +317,7 @@ public:
       // CONTROLLER
       HEIGHT = 0x01, // Height report
       ERROR = 0x02,
+      RESET = 0x04, // Indicates desk in RESET mode; Displays "RESET"/"ASR"
       SESSION = 0x06, // Session request
     };
 #else
@@ -490,7 +492,7 @@ public:
 
           // CONTROLLER commands
         case HEIGHT:
-          if (argc >= 2) {
+          if (argc == 2) {
             parent.set_height(Util::getword(argv[0], argv[1]));
             return;
           }
@@ -513,6 +515,15 @@ public:
         case SESSION: // only known code for comand 6: 1 6 0 0
           Log.println("Session Probe?");
           return;
+
+        case RESET:
+          if (argc != 2) {
+            Log.println("ASR Reset: not enough args?");
+            return;
+          }
+          if (argv[0] == 1 && argv[1] == 0xAA)
+            Log.println("ASR Reset");
+          break;
 
           // Unrecognized:
         default:

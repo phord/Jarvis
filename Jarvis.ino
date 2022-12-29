@@ -99,7 +99,7 @@ void onSerialInput() {
   uint preset = ch - '0';
 
   if (preset > 0 && preset < 5) { // preset 1-4
-    Log.println(">SMSG: Preset ", preset);
+      Log.println(">SMSG: Preset ", preset);
 
     Serial.print(">MSG: Preset ");
     Serial.println(preset);
