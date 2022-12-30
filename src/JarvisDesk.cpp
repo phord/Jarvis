@@ -93,7 +93,7 @@ class JarvisDesk_impl {
     if (pending_preset) {
       if (is_moving()) {
         if (!pending_stop)  {
-          // Press the memory once to try to stop our motion
+          // Press the wake sequence once to try to stop our motion
           latch_pin(HS0);
           latch_pin(HS3);
           pending_stop = true;

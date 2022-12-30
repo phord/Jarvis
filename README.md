@@ -189,7 +189,7 @@ lines' inverted logical signals, you will find a "button number" between 0 and 7
 
 Zero means no button is being pressed.  This is "open".
 
-Note: HS3 seems to be a special line used only for Memory Button signaling.
+Note: HS0+HS3 is used to wake up the controller to send height information.
 
          Down  Up  1  2  3  4  M
     HS3                        X
@@ -207,7 +207,7 @@ Translated into binary, these buttons send these codes:
 | 2      |   4   |
 | 3      |   5   |
 | 4      |   6   |
-| M      |   9   |  (always sent as two 30ms pulses)
+| *any*  |   9   |  Sent when display is touched while asleep. Always sent as two 30ms pulses.
 
 ## UART protocol
 
