@@ -68,7 +68,7 @@ DEFINE_PINS(D5, D2, D1, D0, D6, D7);
 // Pinouts for ESp8266 Wemos D1 mini PCB v2.x, using PCB
 // RJ45Pin:  1   2   4   6   7   8
 //  Signal: HS3 DTX HTX HS2 HS1 HS0
-DEFINE_PINS(D4, D7, D8, D6, D1, D2);
+DEFINE_PINS(D2, D7, D8, D6, D1, D0);
 #endif
 
 inline bool is_pin_connected(int pin) {

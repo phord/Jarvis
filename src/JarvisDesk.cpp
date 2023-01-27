@@ -91,46 +91,32 @@ public:
     //-- Manage any pending preset presses
     if (pending_preset) {
       if (is_moving()) {
-        if (!pending_stop) {
+        if (!pending_stop)  {
           // Press the memory once to try to stop our motion
-          press_Memory();
+          latch_pin(HS0);
+          latch_pin(HS3);
+          pending_stop = true;
+          latch_timer.reset(30);
         }
       } else {
         latch(pending_preset);
         latch_timer.reset();
         pending_preset = 0;
       }
-    } else {
-      pending_stop = false;
     }
+    else pending_stop = false;
 
-    if (latch_timer.trigger()) {
+    if (latch_timer.trigger())
       unlatch();
-      if (pending_mem_hold) {
-        latch_pin(HS0);
-        latch_pin(HS3);
-        latch_timer.reset(pending_mem_hold);
-        pending_mem_hold = 0;
-      }
-      if (pending_reset) {
-        // Press and hold down for 5 seconds to re-level after reset
-        latch_pin(HS0);
-        latch_timer.reset(5000);
-        pending_reset = false;
-        Log.println("Reset complete");
-      }
-    }
 
     // Publish pending updates periodically to AdafruitIO
     io_send();
   }
 
   void press_Memory(int duration = 30) {
-    latch_pin(HS0);
     latch_pin(HS3);
     pending_stop = true;
-    latch_timer.reset(30);
-    pending_mem_hold = duration;
+    latch_timer.reset(duration);
     Log.println("Pressing memory for ", duration, "ms");
   }
 
@@ -149,8 +135,7 @@ public:
   void reset() {
     // Press and hold down for 10 seconds
     latch_pin(HS0);
-    latch_timer.reset(10000);
-    pending_reset = true;
+    latch_timer.reset(5000);
     Log.println("Starting reset");
   }
 
@@ -188,7 +173,6 @@ public:
 
   // The preset we are commanded to go to next, if any
   unsigned char pending_preset = 0;
-  unsigned int pending_mem_hold = 0;
   bool pending_stop = false;
   bool pending_reset = false;
 
@@ -284,9 +268,10 @@ public:
       return;
     }
     h = Util::to_mm(h);
-    if (height == h || height < 640 || h > 1300)
-      // if it is the same or out of range for this desk
+    if (height == h || h < 640 || h > 1300)
+      // if it is the same or out of range, ignore it
       return;
+
     height = h;
     height_changed.reset(700);
 
@@ -318,7 +303,7 @@ public:
       HEIGHT = 0x01, // Height report
       ERROR = 0x02,
       RESET = 0x04, // Indicates desk in RESET mode; Displays "RESET"/"ASR"
-      SESSION = 0x06, // Session request
+      PRGM = 0x06, // Programming code
     };
 #else
     enum command_byte {
@@ -388,14 +373,17 @@ public:
 
       switch (state) {
         case SYNC:
-          if (ch != addr)
+          if (ch != addr){
+            Log.print("Bad Sync: ");
+            Log.println(ch);
             return error(ch);
+          }
           break;
 
         case CMD:
           if (ch == 5) // end of stream
             return error(ch);
-          if (ch != 1 && ch != 2 && ch != 6) {
+          if (ch != 1 && ch != 2 && ch != 4 && ch != 6) {
             Log.println("Bad cmd: ", ch);
             return error(ch);
           }
@@ -415,6 +403,7 @@ public:
 
           if (argc == 2)
             complete = true;
+          
           break;
       }
       state = static_cast<state_t>(state + 2);
@@ -512,8 +501,29 @@ public:
 
           return;
 
-        case SESSION: // only known code for comand 6: 1 6 0 0
-          Log.println("Session Probe?");
+        //This is for ack and programming notice
+        // Setting memory for locations 1,2,3,4
+        //1-6-x-0 where x is 1,2,4,8 
+        case PRGM: 
+          if (argc != 2) {
+            Log.println("Input: not enough args?");
+            return;
+          }
+          if(argv[0] & 0x0E && argv[1] == 0) {
+            for(int i = 1; i<= 4; i++){
+              if(argv[0]&1) {
+                Log.print(parent.height);
+                Log.print(" programmed to preset ");
+                Log.println(i);
+                return;
+              } else {
+                argv[0] >>= 1;
+              }
+            }
+          }
+          if(argv[0] == 0 && argv[1] == 0) 
+            Log.println("Pending input");
+          
           return;
 
         case RESET:
@@ -682,7 +692,10 @@ public:
       while (deskSerial.available()) {
         auto ch = deskSerial.read();
 
+        //Log.print_hex(ch);
+        //Log.print(" ");
         if (deskPacket.put(ch)) {
+          //Log.println();
           deskPacket.decode(*this);
           deskPacket.reset();
         }
@@ -692,7 +705,12 @@ public:
     if (is_pin_connected(HTX)) {
       while (hsSerial.available()) {
         auto ch = hsSerial.read();
+
+        Log.print("HS: ");
+        Log.print_hex(ch);
+        Log.print(" ");
         if (hsPacket.put(ch)) {
+          Log.println();
           hsPacket.decode(*this);
         }
       }

@@ -76,6 +76,7 @@ void handlePreset(AdafruitIO_Data* data) {
 }
 
 void onSerialInput() {
+  Jarvis.report();
   char ch = Serial.read();
 
   if (ch == 'r') {
@@ -87,20 +88,26 @@ void onSerialInput() {
     return;
   }
 
-  if (ch == 'm') {
-    Log.println(">SMSG: Virtual Memory Press");
+  if (ch == 'u' || ch == 'l') {
+    Log.println(">SMSG: Lock Toggle");
 
-    Serial.print("MSG: Virtual Memory Press");
+    Serial.print("MSG: Lock Toggle");
 
     Jarvis.press_Memory(10000);
     return;
+  }
+  
+  //Set the preset by entering p then the preset number
+  if(ch == 'p' && Serial.available()){
+      Jarvis.press_Memory(500);
+      delay(100);
+      ch = Serial.read();
   }
 
   uint preset = ch - '0';
 
   if (preset > 0 && preset < 5) { // preset 1-4
-      Log.println(">SMSG: Preset ", preset);
-
+    Log.println(">SMSG: Preset ", preset);
     Serial.print(">MSG: Preset ");
     Serial.println(preset);
 
@@ -109,6 +116,4 @@ void onSerialInput() {
     // Press the button
     Jarvis.goto_preset(preset);
   }
-
-  Jarvis.report();
 }
