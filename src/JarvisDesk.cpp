@@ -93,10 +93,8 @@ public:
       if (is_moving()) {
         if (!pending_stop)  {
           // Press the memory once to try to stop our motion
-          latch_pin(HS0);
-          latch_pin(HS3);
+          press_Memory(30);
           pending_stop = true;
-          latch_timer.reset(30);
         }
       } else {
         latch(pending_preset);
@@ -114,8 +112,10 @@ public:
   }
 
   void press_Memory(int duration = 30) {
+#if not defined(JCB35N2) // JCB35N2 doesn't use this line when pressing memory
+    latch_pin(HS0);
+#endif
     latch_pin(HS3);
-    pending_stop = true;
     latch_timer.reset(duration);
     Log.println("Pressing memory for ", duration, "ms");
   }
