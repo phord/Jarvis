@@ -4,7 +4,7 @@
 // There are a few different protocols for controllers.
 // Uncomment the one you have.
 // Uplift Desk V2
-#define JCB35N2
+#define JCB35N2PA32V2
 
 // You need to define pins for 4 to 6 GPIOs to connect to your Jarvis RJ-45 cable.
 // 4 pins go to the handset buttons. These encode the Up, Down, Memory and Presets (1-4) buttons.

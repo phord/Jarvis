@@ -112,7 +112,7 @@ public:
   }
 
   void press_Memory(int duration = 30) {
-#if not defined(JCB35N2) // JCB35N2 doesn't use this line when pressing memory
+#if not defined(JCB35N2PA32V2) // JCB35N2PA32V2 doesn't use this line when pressing memory
     latch_pin(HS0);
 #endif
     latch_pin(HS3);
@@ -243,7 +243,7 @@ public:
     if (preset & 8)
       latch_pin(HS3);
   }
-#if defined(JCB35N2)
+#if defined(JCB35N2PA32V2)
 #define CONTROLLER 0x01
 
 #else
@@ -294,7 +294,7 @@ public:
               the handset.  They are collected here in one enum for simplicity.
     **/
 
-#if defined(JCB35N2)
+#if defined(JCB35N2PA32V2)
     enum command_byte {
       // FAKE
       NONE = 0x00, // Unused/never seen; used as default for "Uninitialized"
@@ -367,7 +367,7 @@ public:
       argc = 0;
       memset(argv, 0U, sizeof(argv));
     }
-#if defined(JCB35N2)
+#if defined(JCB35N2PA32V2)
     bool put(unsigned char ch) {
       bool complete = false;
 
@@ -473,7 +473,7 @@ public:
       else
         print_choice(argv[0], { args... });
     }
-#if defined(JCB35N2)
+#if defined(JCB35N2PA32V2)
     void decode(JarvisDesk_impl& parent) {
       switch (cmd) {
         case NONE:
