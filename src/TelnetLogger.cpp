@@ -20,14 +20,13 @@ void TelnetLogger::run() {
       if (serverClient) {
         serverClient.stop();
       }
-      serverClient = telnetServer.available();
+      serverClient = telnetServer.accept();
       serverClient.println("Connected to Jarvis");
     }
   }
 
   while (serverClient.available()) { // get data from Client
     unsigned ch = serverClient.read();
-    // serverClient.print(ch, HEX);
-    // serverClient.print(" ");
+    serverClient.print(ch, HEX);
   }
 }
