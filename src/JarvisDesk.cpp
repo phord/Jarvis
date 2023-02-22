@@ -208,6 +208,7 @@ public:
       while (data) {
         Log.print(" ", data->feedName(), "=", data->toString());
         data = data->next_data;
+        yield();
       }
       Log.println();
 
@@ -509,20 +510,16 @@ public:
             Log.println("Input: not enough args?");
             return;
           }
-          if(argv[0] & 0x0E && argv[1] == 0) {
-            for(int i = 1; i<= 4; i++){
-              if(argv[0]&1) {
-                Log.print(parent.height);
-                Log.print(" programmed to preset ");
-                Log.println(i);
-                return;
-              } else {
-                argv[0] >>= 1;
-              }
-            }
+          if((argv[0] & 0b1111)>0 && argv[1] == 0){
+            if(argv[0] & 0b1100)
+              parent.program_preset((argv[0]&0b1000)?4:3);
+            else 
+              parent.program_preset(argv[0]);
+            return;
           }
+            
           if(argv[0] == 0 && argv[1] == 0) 
-            Log.println("Pending input");
+            Log.println("Pending programming input");
           
           return;
 
@@ -693,12 +690,13 @@ public:
         auto ch = deskSerial.read();
 
         //Log.print_hex(ch);
-        //Log.print(" ");
+        //Log.println();
         if (deskPacket.put(ch)) {
           //Log.println();
           deskPacket.decode(*this);
           deskPacket.reset();
         }
+        yield();
       }
     }
 
@@ -713,6 +711,7 @@ public:
           Log.println();
           hsPacket.decode(*this);
         }
+        yield();
       }
     }
   }

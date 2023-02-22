@@ -25,8 +25,8 @@ void flash(unsigned count = 0, float secs = 0.3);
 void setup() {
   pinMode(LED_PIN, OUTPUT);
 
-  Serial.begin(9600);
-  Serial.println("Serial init");
+  //Serial.begin(9600);
+  //Serial.println("Serial init");
 
   io.connect();
 
@@ -51,8 +51,8 @@ void loop() {
   // Run the AdafruitIO Service
   io.run();
 
-  if (Serial.available())
-    onSerialInput();
+  //if (Serial.available())
+  //  onSerialInput();
 
   // run the Jarvis desk interface
   Jarvis.run();

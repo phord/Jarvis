@@ -28,5 +28,6 @@ void TelnetLogger::run() {
   while (serverClient.available()) { // get data from Client
     unsigned ch = serverClient.read();
     serverClient.print(ch, HEX);
+    serverClient.print(" ");
   }
 }
