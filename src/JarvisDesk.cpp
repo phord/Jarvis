@@ -521,11 +521,24 @@ private:
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
+      static int msg = 0;
+
+      auto m = getMessage();
+      if ( m != msg) {
+        msg = m;
+        Log.print("[");
+        Log.print_hex(msg);
+        Log.print("]");
+      }
       if (is_pin_connected(DTX)) {
           while (deskSerial.available()) {
               auto ch = deskSerial.read();
+              Log.print("<");
+              Log.print_hex(ch);
+              Log.print(">");
               if (deskPacket.put(ch)) {
                   deskPacket.decode(*this);
+                  Log.println();
               }
           }
       }
@@ -533,8 +546,12 @@ private:
       if (is_pin_connected(DTX)) {
           while (hsSerial.available()) {
               auto ch = hsSerial.read();
+              Log.print("{");
+              Log.print_hex(ch);
+              Log.print("}");
               if (hsPacket.put(ch)) {
                   hsPacket.decode(*this);
+                  Log.println();
               }
           }
       }
