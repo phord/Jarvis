@@ -14,7 +14,7 @@
 const int LED_PIN = LED_BUILTIN;
 
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, WIFI_SSID, WIFI_PASS);
-AdafruitIO_Group* jarvis_sub = io.group("jarvis");
+AdafruitIO_Group *jarvis_sub = io.group("jarvis");
 
 JarvisDesk Jarvis;
 Ota ota;
@@ -32,7 +32,7 @@ void setup() {
   jarvis_sub->onMessage("preset", handlePreset);
 
   flash(0, 0.5);
-  while (io.status() < AIO_CONNECTED) {
+  while(io.status() < AIO_CONNECTED) {
     delay(100);
   }
 
@@ -42,14 +42,12 @@ void setup() {
 
   Log.begin();
   jarvis_sub->get();
+
 }
 
 void loop() {
   // Run the AdafruitIO Service
   io.run();
-
-  //if (Serial.available())
-  //  onSerialInput();
 
   // run the Jarvis desk interface
   Jarvis.run();
@@ -61,7 +59,7 @@ void loop() {
 }
 
 // Handle messages from AdafruitIO
-void handlePreset(AdafruitIO_Data* data) 
+void handlePreset(AdafruitIO_Data *data) 
 {
   Log.println(">MSG: ", data->feedName(), "=", data->toString());
 
@@ -70,5 +68,4 @@ void handlePreset(AdafruitIO_Data* data)
 
   // Press the button
   Jarvis.goto_preset(preset);
-  Jarvis.report();
 }

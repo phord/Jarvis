@@ -94,7 +94,7 @@ public:
       if (is_moving()) {
         if (!pending_stop)  {
           // Press the wake sequence once to try to stop our motion
-          press_Memory(30);
+          press_memory(30);
           pending_stop = true;
         }
       } else {
@@ -113,7 +113,7 @@ public:
     io_send();
   }
 
-  void press_Memory(int duration = 30) {
+  void press_memory(int duration = 30) {
 #if not defined(JCB35N2PA32V2) // JCB35N2PA32V2 doesn't use this line when pressing memory
     latch_pin(HS0);
 #endif
@@ -126,14 +126,13 @@ public:
     if (!p || p > 4) return false;
     if (p == preset) return false;
     pending_preset = p;
-    Log.println("Goto preset ", p);
     return true;
   }
 
-  void reset() {
-    // Press and hold down for 10 seconds
+  void reset(int duration = 5000) {
+    // Press and hold down for duration default 5s
     latch_pin(HS0);
-    latch_timer.reset(5000);
+    latch_timer.reset(duration);
     Log.println("Starting reset");
   }
 
@@ -219,7 +218,8 @@ public:
     return false;
   }
 
-  void unlatch() {
+  void unlatch() 
+  {
     unlatch_pin(HS0);
     unlatch_pin(HS1);
     unlatch_pin(HS2);
@@ -264,7 +264,8 @@ public:
     }
 
     h = Util::to_mm(h);
-    if (height == h || h < 640 || h > 1300) return; // if it out of range, ignore it
+    if (height == h || h < MIN_HEIGHT || h > MAX_HEIGHT) 
+      return; // if it out of range, ignore it
 
     height = h;
     height_changed.reset(700);
@@ -343,7 +344,7 @@ public:
       CMD,    // waiting for cmd
       LENGTH, // waiting for argc
       // ARGS4,3,2,1   // collecting args
-      ARGS = sizeof(argv), // collecting args
+      ARGS = LENGTH + sizeof(argv), // collecting args
       CHKSUM,              // waiting for checksum
       ENDMSG,              // waiting for EOM
     } state = SYNC;
@@ -395,7 +396,7 @@ public:
           if (state < 4 || state > 6) { // only 2 args seen
             Log.println("Arg mismatch");
             Log.println("cmd: ", cmd);
-            for (int i = 0; i <= state - 2; i++)
+            for (int i = 0; i <= 2; i++)
               Log.println("argv[", i, "]: ", argv[i]);
 
             return error(ch);
@@ -574,7 +575,6 @@ public:
           if (argc) {
             Log.println("Height limit stop: ",
               (argv[0] == 0x01) ? "MAX " : 
-              
               (argv[0] == 0x02) ? "MIN": "???");
             if (!(argv[0] & ~0x03)) return;
           }
@@ -729,8 +729,8 @@ void JarvisDesk::begin() {
 void JarvisDesk::run() {
   jarvis->run();
 }
-void JarvisDesk::reset() {
-  jarvis->reset();
+void JarvisDesk::reset(int duration = 5000) {
+  jarvis->reset(duration);
 }
 
 void JarvisDesk::report() {
@@ -743,6 +743,6 @@ void JarvisDesk::goto_preset(int p) {
   jarvis->goto_preset(p);
 }
 
-void JarvisDesk::press_Memory(int duration = 30) {
-  jarvis->press_Memory(duration);
+void JarvisDesk::press_memory(int duration = 30) {
+  jarvis->press_memory(duration);
 }

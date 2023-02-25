@@ -6,6 +6,12 @@
 // Uplift Desk V2
 #define JCB35N2PA32V2
 
+// Define minimum and maximum desk height in mm
+// #define MIN_HEIGHT 0
+// #define MAX_HEIGHT 5000
+#define MIN_HEIGHT 640
+#define MAX_HEIGHT 1300
+
 // You need to define pins for 4 to 6 GPIOs to connect to your Jarvis RJ-45 cable.
 // 4 pins go to the handset buttons. These encode the Up, Down, Memory and Presets (1-4) buttons.
 // 2 pins go to the serial TX/RX pins between the handset and the desk controller.
