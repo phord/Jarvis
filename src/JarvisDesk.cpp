@@ -93,7 +93,7 @@ public:
     if (pending_preset) {
       if (is_moving()) {
         if (!pending_stop)  {
-          // Press the memory once to try to stop our motion
+          // Press the wake sequence once to try to stop our motion
           press_Memory(30);
           pending_stop = true;
         }
@@ -348,6 +348,12 @@ public:
       ENDMSG,              // waiting for EOM
     } state = SYNC;
 
+    // Compensating handler for error bytes.
+    // If we get an unexpected char, reset our state and clear any accumulated arguments. But we want to resync with the
+    // start of the next possible message as soon as possible. So, after an error we set the state back to SYNC to begin
+    // waiting for a new packet.  But if the error byte itself was a sync byte (matches our address), then we should
+    // already advance to SYNC2.
+    // returns "false" to simplify returning from "put"
     bool error(unsigned char ch) {
       state = static_cast<state_t>(SYNC + (ch == addr));
       cmd = NONE;
@@ -406,6 +412,7 @@ public:
       return complete;
     }
 #else
+    // returns true when a message is decoded and ready to parse in {cmd, argc, argv}
     bool put(unsigned char ch) {
       bool complete = false;
 
@@ -667,25 +674,41 @@ public:
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
+      static int msg = 0;
+
+      auto m = getMessage();
+      if ( m != msg) {
+        msg = m;
+        Log.print("[");
+        Log.print_hex(msg);
+        Log.print("]");
+      }
     if (is_pin_connected(DTX)) {
       while (deskSerial.available()) {
         auto ch = deskSerial.read();
+              Log.print("<");
+              Log.print_hex(ch);
+              Log.print(">");
         if (deskPacket.put(ch)) {
           deskPacket.decode(*this);
           deskPacket.reset();
+          Log.println();
         }
       }
     }
 
-    if (is_pin_connected(HTX)) {
-      while (hsSerial.available()) {
-        auto ch = hsSerial.read();
-        if (hsPacket.put(ch)) {
-          hsPacket.decode(*this);
-        }
-        yield();
+      if (is_pin_connected(DTX)) {
+          while (hsSerial.available()) {
+              auto ch = hsSerial.read();
+              Log.print("{");
+              Log.print_hex(ch);
+              Log.print("}");
+              if (hsPacket.put(ch)) {
+                  hsPacket.decode(*this);
+                  Log.println();
+              }
+          }
       }
-    }
   }
 
 };
