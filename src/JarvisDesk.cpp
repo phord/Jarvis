@@ -313,6 +313,12 @@ private:
       ENDMSG,  // waiting for EOM
     } state = SYNC;
 
+    // Compensating handler for error bytes.
+    // If we get an unexpected char, reset our state and clear any accumulated arguments. But we want to resync with the
+    // start of the next possible message as soon as possible. So, after an error we set the state back to SYNC to begin
+    // waiting for a new packet.  But if the error byte itself was a sync byte (matches our address), then we should
+    // already advance to SYNC2.
+    // returns "false" to simplify returning from "put"
     bool error(unsigned char ch) {
       state = static_cast<state_t>(SYNC + (ch == addr));
       cmd = NONE;
@@ -321,6 +327,7 @@ private:
       return false;
     }
 
+    // returns true when a message is decoded and ready to parse in {cmd, argc, argv}
     bool put(unsigned char ch) {
       bool complete = false;
 
