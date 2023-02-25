@@ -8,6 +8,7 @@ TelnetLogger Log;
 void TelnetLogger::begin() {
   telnetServer.begin();
   telnetServer.setNoDelay(true);
+
 }
 
 bool TelnetLogger::connected() {
@@ -27,7 +28,7 @@ void TelnetLogger::run() {
 
   while (serverClient.available()) { // get data from Client
     unsigned ch = serverClient.read();
-    serverClient.print(ch, HEX);
-    serverClient.print(" ");
+    // serverClient.print(ch, HEX);
+    // serverClient.print(" ");
   }
 }

@@ -4,9 +4,9 @@
 #include "Arduino.h"
 
 struct JarvisDesk_impl;
-class JarvisDesk
-{
+class JarvisDesk {
 public:
+
     JarvisDesk();
     ~JarvisDesk();
 

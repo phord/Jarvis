@@ -1,4 +1,4 @@
-// #include <Ticker.h>
+#include <Ticker.h>
 
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
@@ -24,9 +24,6 @@ void flash(unsigned count = 0, float secs = 0.3);
 
 void setup() {
   pinMode(LED_PIN, OUTPUT);
-
-  //Serial.begin(9600);
-  //Serial.println("Serial init");
 
   io.connect();
 
@@ -64,7 +61,8 @@ void loop() {
 }
 
 // Handle messages from AdafruitIO
-void handlePreset(AdafruitIO_Data* data) {
+void handlePreset(AdafruitIO_Data* data) 
+{
   Log.println(">MSG: ", data->feedName(), "=", data->toString());
 
   auto preset = data->toInt();
@@ -73,47 +71,4 @@ void handlePreset(AdafruitIO_Data* data) {
   // Press the button
   Jarvis.goto_preset(preset);
   Jarvis.report();
-}
-
-void onSerialInput() {
-  Jarvis.report();
-  char ch = Serial.read();
-
-  if (ch == 'r') {
-    Log.println(">SMSG: Reset");
-
-    Serial.print("MSG: Reset");
-
-    Jarvis.reset();
-    return;
-  }
-
-  if (ch == 'u' || ch == 'l') {
-    Log.println(">SMSG: Lock Toggle");
-
-    Serial.print("MSG: Lock Toggle");
-
-    Jarvis.press_Memory(10000);
-    return;
-  }
-  
-  //Set the preset by entering p then the preset number
-  if(ch == 'p' && Serial.available()){
-      Jarvis.press_Memory(500);
-      delay(100);
-      ch = Serial.read();
-  }
-
-  uint preset = ch - '0';
-
-  if (preset > 0 && preset < 5) { // preset 1-4
-    Log.println(">SMSG: Preset ", preset);
-    Serial.print(">MSG: Preset ");
-    Serial.println(preset);
-
-    flash(preset, 0.25);
-
-    // Press the button
-    Jarvis.goto_preset(preset);
-  }
 }

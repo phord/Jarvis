@@ -65,6 +65,7 @@ struct Util {
     }
     return h;
   }
+
 };
 
 class JarvisDesk_impl {
@@ -104,8 +105,9 @@ public:
     }
     else pending_stop = false;
 
-    if (latch_timer.trigger())
+    if (latch_timer.trigger()) {
       unlatch();
+    }
 
     // Publish pending updates periodically to AdafruitIO
     io_send();
@@ -121,12 +123,8 @@ public:
   }
 
   bool goto_preset(int p) {
-    if (!p || p > 4)
-      return false;
-    if (p == preset) {
-      Log.println("Already at preset");
-      return false;
-    }
+    if (!p || p > 4) return false;
+    if (p == preset) return false;
     pending_preset = p;
     Log.println("Goto preset ", p);
     return true;
@@ -169,6 +167,8 @@ public:
   one_shot_timer io_timer;       // prevent overloading AdafruitIO
 
   bool io_pending = false;
+
+  private:
   AdafruitIO_Group* jarvis = nullptr;
 
   // The preset we are commanded to go to next, if any
@@ -208,7 +208,6 @@ public:
       while (data) {
         Log.print(" ", data->feedName(), "=", data->toString());
         data = data->next_data;
-        yield();
       }
       Log.println();
 
@@ -227,22 +226,18 @@ public:
     unlatch_pin(HS3);
   }
 
-  void latch(unsigned preset) {
-    if (!preset || preset > 4)
-      return;
+  void latch(unsigned preset) 
+  {
+    if (!preset || preset > 4) return;
 
     // pinout pattern has preset+2
     preset += 2;
 
     unlatch();
-    if (preset & 1)
-      latch_pin(HS0);
-    if (preset & 2)
-      latch_pin(HS1);
-    if (preset & 4)
-      latch_pin(HS2);
-    if (preset & 8)
-      latch_pin(HS3);
+    if (preset & 1) latch_pin(HS0);
+    if (preset & 2) latch_pin(HS1);
+    if (preset & 4) latch_pin(HS2);
+    if (preset & 8) latch_pin(HS3);
   }
 #if defined(JCB35N2PA32V2)
 #define CONTROLLER 0x01
@@ -254,8 +249,7 @@ public:
 #define HANDSET 0xF1
 
   void set_preset(unsigned char p) {
-    if (preset == p)
-      return;
+    if (preset == p) return;
     preset = p;
 
     // publish update to AdafruitIO
@@ -268,10 +262,9 @@ public:
       Log.println(h);
       return;
     }
+
     h = Util::to_mm(h);
-    if (height == h || h < 640 || h > 1300)
-      // if it is the same or out of range, ignore it
-      return;
+    if (height == h || h < 640 || h > 1300) return; // if it out of range, ignore it
 
     height = h;
     height_changed.reset(700);
@@ -288,6 +281,7 @@ public:
       io_set(buf, height);
     }
     Log.println("Memory-set: ", memset, " ", height);
+
   }
 
   struct cmdPacket {
@@ -349,7 +343,7 @@ public:
       CMD,    // waiting for cmd
       LENGTH, // waiting for argc
       // ARGS4,3,2,1   // collecting args
-      ARGS = sizeof(argv), // LENGTH + sizeof(argv), // collecting args
+      ARGS = sizeof(argv), // collecting args
       CHKSUM,              // waiting for checksum
       ENDMSG,              // waiting for EOM
     } state = SYNC;
@@ -418,30 +412,26 @@ public:
       switch (state) {
         case SYNC:
         case SYNC2:
-          if (ch != addr)
-            return error(ch);
+          if (ch != addr) return error(ch);
           break;
 
         case CMD:
-          cmd = static_cast<cmdPacket::command_byte>(ch); // was checksum = ch
+          cmd = static_cast<cmdPacket::command_byte>(checksum = ch);
           break;
 
         case LENGTH:
-          if (ch > sizeof(argv))
-            return error(ch);
+          if (ch > sizeof(argv)) return error(ch);
           checksum += (argc = ch);
           state = static_cast<state_t>(CHKSUM - ch - 1);
           break;
 
         default: // ARGS
-          if (state <= LENGTH || state > ARGS)
-            return error(ch); // assert(ARGS);
+          if (state <= LENGTH || state > ARGS) return error(ch); // assert(ARGS);
           checksum += (argv[argc - (CHKSUM - state)] = ch);
           break;
 
         case CHKSUM:
-          // if (ch != checksum)
-          //   return error(ch);
+          if (ch != checksum) return error(ch);
           complete = true;
           break;
 
@@ -450,16 +440,13 @@ public:
       }
       // Common increment for every state
       state = static_cast<state_t>(state + 1);
-      if (state < SYNC || state > ENDMSG)
-        return error(ch); // assert(state);
+      if (state < SYNC || state > ENDMSG) return error(ch); // assert(state);
       return complete;
     }
 #endif
 
-    void
-      print_choice(int n, std::vector<const char*> args) {
-      if (n < args.size())
-        Log.println(args[n]);
+    void print_choice(int n, std::vector<const char *> args) {
+      if (n < args.size()) Log.println(args[n]);
       else {
         Log.println("UNKNOWN[P0=", n, "]");
         dump();
@@ -469,10 +456,8 @@ public:
     template <class... Args>
     void config(const char* field, Args... args) {
       Log.print(field, ": ");
-      if (!argc)
-        Log.println("No args?");
-      else
-        print_choice(argv[0], { args... });
+      if (!argc) Log.println("No args?");
+      else print_choice(argv[0], { args... });
     }
 #if defined(JCB35N2PA32V2)
     void decode(JarvisDesk_impl& parent) {
@@ -542,8 +527,7 @@ public:
 #else
     void decode(JarvisDesk_impl& parent) {
       switch (cmd) {
-        case NONE:
-          break;
+        case NONE:  break;
 
           // CONTROLLER commands
         case HEIGHT:
@@ -582,10 +566,10 @@ public:
         case LIMIT_STOP:
           if (argc) {
             Log.println("Height limit stop: ",
-              (argv[0] == 0x01) ? "MAX " : (argv[0] == 0x02) ? "MIN"
-              : "???");
-            if (!(argv[0] & ~0x03))
-              return;
+              (argv[0] == 0x01) ? "MAX " : 
+              
+              (argv[0] == 0x02) ? "MIN": "???");
+            if (!(argv[0] & ~0x03)) return;
           }
           break;
 
@@ -600,13 +584,12 @@ public:
           // 1,2,3,4 = {3, 4, 0x25, 0x26}
         {
           auto preset =
-            argv[0] == 4 ? 1 : argv[0] == 8 ? 2
-            : argv[0] == 16 ? 3
-            : argv[0] == 32 ? 4
-            : 0;
+            argv[0] == 4 ? 1 : 
+            argv[0] == 8 ? 2 :
+            argv[0] == 16 ? 3 :
+            argv[0] == 32 ? 4 : 0;
           Log.println("Moving to preset: ", preset);
-          if (preset)
-            return;
+          if (preset) return;
         }
         break;
 
@@ -673,8 +656,7 @@ public:
       Log.print("[");
       for (unsigned i = 0; i < argc; i++) {
         Log.print_hex(argv[i]);
-        if (i + 1 < argc)
-          Log.print(" ");
+        if (i + 1 < argc) Log.print(" ");
       }
       Log.println("]");
     }
@@ -688,33 +670,24 @@ public:
     if (is_pin_connected(DTX)) {
       while (deskSerial.available()) {
         auto ch = deskSerial.read();
-
-        //Log.print_hex(ch);
-        //Log.println();
         if (deskPacket.put(ch)) {
-          //Log.println();
           deskPacket.decode(*this);
           deskPacket.reset();
         }
-        yield();
       }
     }
 
     if (is_pin_connected(HTX)) {
       while (hsSerial.available()) {
         auto ch = hsSerial.read();
-
-        Log.print("HS: ");
-        Log.print_hex(ch);
-        Log.print(" ");
         if (hsPacket.put(ch)) {
-          Log.println();
           hsPacket.decode(*this);
         }
         yield();
       }
     }
   }
+
 };
 
 //-- JarvisDesk API interface
@@ -749,5 +722,4 @@ void JarvisDesk::goto_preset(int p) {
 
 void JarvisDesk::press_Memory(int duration = 30) {
   jarvis->press_Memory(duration);
-  JarvisDesk::report();
 }

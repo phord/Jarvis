@@ -5,14 +5,16 @@ Ticker flipper;
 
 #define FOREVER 9999
 
-void flip() {
+void flip() 
+{
   int state = digitalRead(LED_BUILTIN);  // get the current state of LED pin
   digitalWrite(LED_BUILTIN, !state);     // set pin to the opposite state
 }
 
 unsigned flasher_count = 0;
 
-void flasher() {
+void flasher() 
+{
   if (!flasher_count) {
     flipper.detach();
     return;

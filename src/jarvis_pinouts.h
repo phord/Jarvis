@@ -71,6 +71,4 @@ DEFINE_PINS(D5, D2, D1, D0, D6, D7);
 DEFINE_PINS(D2, D7, D8, D6, D1, D0);
 #endif
 
-inline bool is_pin_connected(int pin) {
-    return pin != NC;
-}
+inline bool is_pin_connected(int pin) { return pin != NC; }
