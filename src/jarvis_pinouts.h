@@ -42,39 +42,40 @@
 #define DEFPIN(name, pin) static constexpr int name = pin;
 // Helper macro to define 6 pins in one easy list.
 #define DEFINE_PINS(p1, p2, p4, p6, p7, p8) \
-    DEFPIN(HS3, p1);                        \
-    DEFPIN(DTX, p2);                        \
-    DEFPIN(HTX, p4);                        \
-    DEFPIN(HS2, p6);                        \
-    DEFPIN(HS1, p7);                        \
+    DEFPIN(HS3, p1);  \
+    DEFPIN(DTX, p2);  \
+    DEFPIN(HTX, p4);  \
+    DEFPIN(HS2, p6);  \
+    DEFPIN(HS1, p7);  \
     DEFPIN(HS0, p8);
 
 #ifdef JARVISDESK_DIGISTUMP_OAK_V1
-// Pinouts for Esp8266 Oak (which uses these "P" numbers)
-// Note: I had HS3=P2 originally, but it wasn't actually connected on my board and it was commented out in the code.
-// RJ45Pin:  1   2   4   6   7   8
-//  Signal: HS3 DTX HTX HS2 HS1 HS0
-DEFINE_PINS(NC, P3, P4, P9, P8, P10);
+    // Pinouts for Esp8266 Oak (which uses these "P" numbers)
+    // Note: I had HS3=P2 originally, but it wasn't actually connected on my board and it was commented out in the code.
+    // RJ45Pin:  1   2   4   6   7   8
+    //  Signal: HS3 DTX HTX HS2 HS1 HS0
+    DEFINE_PINS(NC, P3, P4, P9, P8, P10);
 #endif
 
 #ifdef JARVISDESK_WEMOS_D1MINI_V1
-// Pinouts for ESp8266 Wemos D1 mini Version 1, using protoboard
-// RJ45Pin:  1   2   4   6   7   8
-//  Signal: HS3 DTX HTX HS2 HS1 HS0
-DEFINE_PINS(D1, D2, D3, D5, D0, D6);
+    // Pinouts for ESp8266 Wemos D1 mini Version 1, using protoboard
+    // RJ45Pin:  1   2   4   6   7   8
+    //  Signal: HS3 DTX HTX HS2 HS1 HS0
+    DEFINE_PINS(D1, D2, D3, D5, D0, D6);
 #endif
 
 #ifdef JARVISDESK_WEMOS_D1MINI_V2
-// Pinouts for ESp8266 Wemos D1 mini PCB v2.x, using PCB
-// RJ45Pin:  1   2   4   6   7   8
-//  Signal: HS3 DTX HTX HS2 HS1 HS0
-DEFINE_PINS(D5, D2, D1, D0, D6, D7);
+    // Pinouts for ESp8266 Wemos D1 mini PCB v2.x, using PCB
+    // RJ45Pin:  1   2   4   6   7   8
+    //  Signal: HS3 DTX HTX HS2 HS1 HS0
+    DEFINE_PINS(D5, D2, D1, D0, D6, D7);
 #endif
+
 #ifdef JARVISDESK_NODEMCU_V3
-// Pinouts for ESp8266 Wemos D1 mini PCB v2.x, using PCB
-// RJ45Pin:  1   2   4   6   7   8
-//  Signal: HS3 DTX HTX HS2 HS1 HS0
-DEFINE_PINS(D2, D7, D8, D6, D1, D0);
+    // Pinouts for ESp8266 Wemos D1 mini PCB v2.x, using PCB
+    // RJ45Pin:  1   2   4   6   7   8
+    //  Signal: HS3 DTX HTX HS2 HS1 HS0
+    DEFINE_PINS(D2, D7, D8, D6, D1, D0);
 #endif
 
 inline bool is_pin_connected(int pin) { return pin != NC; }
