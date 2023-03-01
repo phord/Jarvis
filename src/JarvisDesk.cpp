@@ -526,9 +526,7 @@ private:
       auto m = getMessage();
       if ( m != msg) {
         msg = m;
-        Log.print("[");
-        Log.print_hex(msg);
-        Log.print("]");
+        Log.println("Buttons: ", msg);
       }
       if (is_pin_connected(DTX)) {
           while (deskSerial.available()) {
