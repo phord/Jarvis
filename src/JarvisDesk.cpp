@@ -543,7 +543,7 @@ private:
           }
       }
 
-      if (is_pin_connected(DTX)) {
+      if (is_pin_connected(HTX)) {
           while (hsSerial.available()) {
               auto ch = hsSerial.read();
               Log.print("{");
