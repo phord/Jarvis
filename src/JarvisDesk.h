@@ -15,6 +15,17 @@ class JarvisDesk {
     void report();
     void goto_preset(int p);
 
+    // Desk reactions for Protocols
+
+    // Announce: User commanded move to a preset
+    void set_preset(unsigned char p);
+
+    // Announce: the desk height
+    void set_height(unsigned int h);
+
+    // Announce: Store the current height in a given preset memory
+    void program_preset(unsigned memset);
+
 private:
     JarvisDesk_impl * jarvis;
 };
