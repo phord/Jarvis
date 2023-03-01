@@ -6,6 +6,7 @@
 #include "JarvisDesk.h"
 #include "TelnetLogger.h"
 #include "jarvis_pinouts.h"
+#include "ProtocolFully.h"
 
 extern AdafruitIO_WiFi io;
 
@@ -49,23 +50,6 @@ struct one_shot_timer {
   }
 
   unsigned long t = 0;
-};
-
-struct Util {
-  static unsigned int getword(unsigned char a, unsigned char b) {
-    return (static_cast<unsigned>(a) << 8) + b;
-  }
-
-  static unsigned to_mm(unsigned h) {
-    if (h < 600) {
-      // Height in inches*10; convert to mm
-      h *= 254;  // convert to mm*100
-      h += 50;   // round up to nearest whole mm
-      h /= 100;  // convert to mm
-    }
-    return h;
-  }
-
 };
 
 class JarvisDesk_impl {
@@ -141,6 +125,40 @@ class JarvisDesk_impl {
 
   bool is_moving() {
     return height_changed.pending();
+  }
+
+  void set_preset(unsigned char p) {
+    if (preset == p) return;
+    preset = p;
+
+    // publish update to AdafruitIO
+    io_set("preset", p);
+  }
+
+  void set_height(unsigned int h) {
+    if (h == 9999 || h == 0) {
+      Log.print("Fake-height: ");
+      Log.println(h);
+      return;
+    }
+
+    h = Util::to_mm(h);
+    if (height == h) return;
+    height = h;
+    height_changed.reset(700);
+
+    // publish update to AdafruitIO
+    io_set("height", height);
+  }
+
+  void program_preset(unsigned memset) {
+    // Record program setting if we know the height
+    if (height) {
+      char buf[20];
+      sprintf(buf, "Prog_%d", memset);
+      io_set(buf, height);
+    }
+    Log.println("Memory-set: ", memset, " ", height);
   }
 
   unsigned int height = 0;
@@ -228,296 +246,8 @@ private:
   #define CONTROLLER    0xF2
   #define HANDSET       0xF1
 
-  void set_preset(unsigned char p) {
-    if (preset == p) return;
-    preset = p;
-
-    // publish update to AdafruitIO
-    io_set("preset", p);
-  }
-
-  void set_height(unsigned int h) {
-    if (h == 9999 || h == 0) {
-      Log.print("Fake-height: ");
-      Log.println(h);
-      return;
-    }
-
-    h = Util::to_mm(h);
-    if (height == h) return;
-    height = h;
-    height_changed.reset(700);
-
-    // publish update to AdafruitIO
-    io_set("height", height);
-  }
-
-  void program_preset(unsigned memset) {
-    // Record program setting if we know the height
-    if (height) {
-      char buf[20];
-      sprintf(buf, "Prog_%d", memset);
-      io_set(buf, height);
-    }
-    Log.println("Memory-set: ", memset, " ", height);
-
-  }
-
-  struct cmdPacket {
-    /** Note: Most of these commands are sent only from the desk controller or from
-              the handset.  They are collected here in one enum for simplicity.
-    **/
-    enum command_byte {
-      // FAKE
-      NONE        = 0x00,  // Unused/never seen; used as default for "Uninitialized"
-
-      // CONTROLLER
-      HEIGHT      = 0x01,  // Height report; P0=4 (mm?)
-      LIMIT_RESP  = 0x20,  // Max-height set/cleared; response to [21];
-      REP_MAX     = 0x21,  // Report max height; Response to SET_MAX
-      REP_MIN     = 0x22,  // Report min height; Response to SET_MIN
-      LIMIT_STOP  = 0x23,  // Min/Max reached
-      RESET       = 0x40,  // Indicates desk in RESET mode; Displays "RESET"
-      REP_PRESET  = 0x92,  // Moving to Preset location
-
-      // HANDSET
-      UNITS       = 0x0E,  // Set units to cm/inches
-      MEM_MODE    = 0x19,  // Set memory mode
-      COLL_SENS   = 0x1D,  // Set anti-collision sensitivity  (Sent 1x; no repeats)
-      SET_MAX     = 0x21,  // Set max height; Sets max-height to current height
-      SET_MIN     = 0x22,  // Set min height; Sets min-height to current height
-      LIMIT_CLR   = 0x23,  // Clear min/max height
-      PROGMEM_1   = 0x03,  // Set memory position 1 to current height
-      PROGMEM_2   = 0x04,  // Set memory position 2 to current height
-      PROGMEM_3   = 0x25,  // Set memory position 3 to current height
-      PROGMEM_4   = 0x26,  // Set memory position 4 to current height
-      WAKE        = 0x29,  // Poll message (??) sent when desk doesn't respond to BREAK messages
-      CALIBRATE   = 0x91,  // Height calibration (Repeats 2x)
-    };
-
-    cmdPacket(unsigned char addr_) : addr(addr_) {}
-
-    command_byte  cmd = NONE;
-    unsigned char addr;
-    unsigned char checksum = 99;
-    unsigned char argc = 0;
-    unsigned char argv[5];
-    enum state_t {
-      SYNC,    // waiting for addr
-      SYNC2,   // waiting for addr2
-      CMD,     // waiting for cmd
-      LENGTH,  // waiting for argc
-      // ARGS4,3,2,1   // collecting args
-      ARGS = LENGTH + sizeof(argv),   // collecting args
-      CHKSUM,  // waiting for checksum
-      ENDMSG,  // waiting for EOM
-    } state = SYNC;
-
-    // Compensating handler for error bytes.
-    // If we get an unexpected char, reset our state and clear any accumulated arguments. But we want to resync with the
-    // start of the next possible message as soon as possible. So, after an error we set the state back to SYNC to begin
-    // waiting for a new packet.  But if the error byte itself was a sync byte (matches our address), then we should
-    // already advance to SYNC2.
-    // returns "false" to simplify returning from "put"
-    bool error(unsigned char ch) {
-      state = static_cast<state_t>(SYNC + (ch == addr));
-      cmd = NONE;
-      argc = 0;
-      memset(argv, 0U, sizeof(argv));
-      return false;
-    }
-
-    // returns true when a message is decoded and ready to parse in {cmd, argc, argv}
-    bool put(unsigned char ch) {
-      bool complete = false;
-
-      switch (state) {
-      case SYNC:
-      case SYNC2:
-        if (ch != addr) return error(ch);
-        break;
-
-      case CMD:
-        cmd = static_cast<cmdPacket::command_byte>(checksum = ch);
-        break;
-
-      case LENGTH:
-        if (ch > sizeof(argv)) return error(ch);
-        checksum += (argc = ch);
-        state = static_cast<state_t>(CHKSUM - ch - 1);
-        break;
-
-      default:    // ARGS
-        if (state <= LENGTH || state > ARGS) return error(ch); // assert(ARGS);
-        checksum += (argv[argc - (CHKSUM-state)] = ch);
-        break;
-
-      case CHKSUM:
-        if (ch != checksum) return error(ch);
-        complete = true;
-        break;
-
-      case ENDMSG:
-        return error(ch);  // We do the same here whether it's an error or not
-      }
-      // Common increment for every state
-      state = static_cast<state_t>(state + 1);
-      if (state < SYNC || state > ENDMSG) return error(ch); // assert(state);
-      return complete;
-    }
-
-    void print_choice(int n, std::vector<const char *> args) {
-      if (n < args.size()) Log.println(args[n]);
-      else {
-        Log.println("UNKNOWN[P0=",n,"]");
-        dump();
-      }
-    }
-
-    template<class ...Args>
-    void config(const char * field, Args... args) {
-      Log.print(field, ": ");
-      if (!argc) Log.println("No args?");
-      else print_choice(argv[0], {args...});
-    }
-
-    void decode(JarvisDesk_impl & parent) {
-      switch (cmd) {
-        case NONE:       break;
-
-  // CONTROLLER commands
-        case HEIGHT:
-          if (argc >= 2) {
-            parent.set_height(Util::getword(argv[0], argv[1]));
-            return;
-          }
-          Log.println("set-height: not enough args?");
-          break;
-
-        case REP_MAX:
-          if (argc >= 2) {
-            auto h = Util::to_mm(Util::getword(argv[0], argv[1]));
-            Log.println("Max-height set to ", h, "mm");
-            return;
-          }
-          break;
-
-        case REP_MIN:
-          if (argc >= 2) {
-            auto h = Util::to_mm(Util::getword(argv[0], argv[1]));
-            Log.println("Min-height set to ", h, "mm");
-            return;
-          }
-          break;
-
-        case LIMIT_RESP:
-          if (argc == 1) {
-            Log.print("Height limit: ");
-            Log.print_hex(argv[0]);  // TBD: Meaning of {0, 1, 2, 16}
-            Log.println();
-            return;
-          }
-          break;
-
-        case LIMIT_STOP:
-          if (argc) {
-            Log.println("Height limit stop: ",
-                (argv[0] == 0x01) ? "MAX " :
-                (argv[0] == 0x02) ? "MIN" : "???");
-            if (!(argv[0] & ~0x03)) return;
-          }
-          break;
-
-        case RESET:
-          Log.println("RESET");
-          return;
-
-        case REP_PRESET:
-          // Variant results; wtf?
-          // 1,2,3,4 = {4, 8, 16, 32}
-          // OR
-          // 1,2,3,4 = {3, 4, 0x25, 0x26}
-          {
-            auto preset =
-              argv[0] == 4 ? 1 :
-              argv[0] == 8 ? 2 :
-              argv[0] == 16 ? 3 :
-              argv[0] == 32 ? 4 : 0;
-            Log.println("Moving to preset: ", preset);
-            if (preset) return;
-          }
-          break;
-
-  // HANDSET commands
-        case UNITS:
-          config("Units", "inches",  "centimeters");
-          return;
-
-        case MEM_MODE:
-          config("Memory mode", "One-touch",  "Constant touch");
-          return;
-
-        case COLL_SENS:
-          config("Collision sensitivity", "???", "High", "Medium", "Low");
-          return;
-
-        // TBD
-        // case SET_MAX:  // See REP_MAX
-        // case SET_MIN:  // See REP_MIN
-        // case LIMIT_CLR: // See LIMIT_STOP
-          return;
-
-        case PROGMEM_1:
-          parent.program_preset(1);
-          return;
-
-        case PROGMEM_2:
-          parent.program_preset(2);
-          return;
-
-        case PROGMEM_3:
-          parent.program_preset(3);
-          return;
-
-        case PROGMEM_4:
-          parent.program_preset(4);
-          return;
-
-        case WAKE:
-          Log.println("WAKE");
-          return;
-
-        case CALIBRATE:
-          Log.println("Calibrate min-height");
-          return;
-
-        // Unrecognized:
-        default:
-          Log.print("UNKNOWN COMMAND: ");
-          break;
-      }
-      dump();
-    }
-
-    void dump() {
-      Log.print_hex(addr);
-      Log.print(": ");
-      Log.print_hex(cmd);
-      if (!argc) {
-        Log.println();
-        return;
-      }
-      Log.print("[");
-      for (unsigned i = 0 ; i < argc ; i++) {
-        Log.print_hex(argv[i]);
-        if (i+1 < argc) Log.print(" ");
-      }
-      Log.println("]");
-    }
-  };
-
-  cmdPacket deskPacket = {CONTROLLER};
-  cmdPacket hsPacket = {HANDSET};
+  ProtocolFully deskPacket = {CONTROLLER};
+  ProtocolFully hsPacket = {HANDSET};
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
@@ -535,7 +265,7 @@ private:
               Log.print_hex(ch);
               Log.print(">");
               if (deskPacket.put(ch)) {
-                  deskPacket.decode(*this);
+                  deskPacket.decode();
                   Log.println();
               }
           }
@@ -548,7 +278,7 @@ private:
               Log.print_hex(ch);
               Log.print("}");
               if (hsPacket.put(ch)) {
-                  hsPacket.decode(*this);
+                  hsPacket.decode();
                   Log.println();
               }
           }
@@ -582,4 +312,16 @@ void JarvisDesk::report() {
 
 void JarvisDesk::goto_preset(int p) {
   jarvis->goto_preset(p);
+}
+
+void JarvisDesk::set_preset(unsigned char p) {
+    jarvis->set_preset(p);
+}
+
+void JarvisDesk::set_height(unsigned int h) {
+    jarvis->set_height(h);
+}
+
+void JarvisDesk::program_preset(unsigned memset) {
+    jarvis->program_preset(memset);
 }
