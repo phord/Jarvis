@@ -1,6 +1,17 @@
 #pragma once
 #include <Arduino.h>
 
+// There are a few different protocols for controllers.
+// Uncomment the one you have.
+// Uplift Desk V2
+// #define JCB35N2PA32V2
+
+// Define minimum and maximum desk height in mm
+// #define MIN_HEIGHT 0
+// #define MAX_HEIGHT 5000
+#define MIN_HEIGHT 640
+#define MAX_HEIGHT 1300
+
 // You need to define pins for 4 to 6 GPIOs to connect to your Jarvis RJ-45 cable.
 // 4 pins go to the handset buttons. These encode the Up, Down, Memory and Presets (1-4) buttons.
 // 2 pins go to the serial TX/RX pins between the handset and the desk controller.
@@ -23,6 +34,7 @@
 // #define JARVISDESK_DIGISTUMP_OAK_V1
 // #define JARVISDESK_WEMOS_D1MINI_V1
 #define JARVISDESK_WEMOS_D1MINI_V2
+// #define JARVISDESK_NODEMCU_V3
 
 // -----------------------------------------------------------------------------
 
@@ -57,6 +69,13 @@
     // RJ45Pin:  1   2   4   6   7   8
     //  Signal: HS3 DTX HTX HS2 HS1 HS0
     DEFINE_PINS(D5, D2, D1, D0, D6, D7);
+#endif
+
+#ifdef JARVISDESK_NODEMCU_V3
+    // Pinouts for ESp8266 Wemos D1 mini PCB v2.x, using PCB
+    // RJ45Pin:  1   2   4   6   7   8
+    //  Signal: HS3 DTX HTX HS2 HS1 HS0
+    DEFINE_PINS(D2, D7, D8, D6, D1, D0);
 #endif
 
 inline bool is_pin_connected(int pin) { return pin != NC; }
