@@ -1,4 +1,5 @@
 // Protocol base class and helper utilities
+#include <Arduino.h>    // vector
 
 struct ProtocolBase {
 
@@ -22,8 +23,7 @@ struct ProtocolBase {
 
   // Print the interpreted configuration setting from a list of options using
   // argv[0] as the index.
-  template<class ...Args>
-  void config(const char * field, Args... args) {
+  template <class... Args> void config(const char *field, Args... args) {
     int n = argc ? argv[0] : -1;
     print_choice(field, n, {args...});
   }
@@ -31,7 +31,6 @@ struct ProtocolBase {
   void print_choice(const char *field, int n, std::vector<const char *> args);
   void dump();
 };
-
 
 struct Util {
   static unsigned int getword(unsigned char a, unsigned char b) {
@@ -41,9 +40,9 @@ struct Util {
   static unsigned to_mm(unsigned h) {
     if (h < 600) {
       // Height in inches*10; convert to mm
-      h *= 254;  // convert to mm*100
-      h += 50;   // round up to nearest whole mm
-      h /= 100;  // convert to mm
+      h *= 254; // convert to mm*100
+      h += 50;  // round up to nearest whole mm
+      h /= 100; // convert to mm
     }
     return h;
   }

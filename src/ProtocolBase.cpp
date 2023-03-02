@@ -1,4 +1,5 @@
 #include <Arduino.h>
+
 #include "ProtocolBase.h"
 #include "TelnetLogger.h"
 
