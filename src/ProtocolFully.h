@@ -9,21 +9,22 @@ struct ProtocolFully : public ProtocolBase {
 
   unsigned char checksum = 99;
   enum state_t {
-    SYNC,    // waiting for addr
-    SYNC2,   // waiting for addr2
-    CMD,     // waiting for cmd
-    LENGTH,  // waiting for argc
+    SYNC,   // waiting for addr
+    SYNC2,  // waiting for addr2
+    CMD,    // waiting for cmd
+    LENGTH, // waiting for argc
     // ARGS4,3,2,1   // collecting args
-    ARGS = LENGTH + sizeof(argv),   // collecting args
-    CHKSUM,  // waiting for checksum
-    ENDMSG,  // waiting for EOM
+    ARGS = LENGTH + sizeof(argv), // collecting args
+    CHKSUM,                       // waiting for checksum
+    ENDMSG,                       // waiting for EOM
   } state = SYNC;
 
   // Compensating handler for error bytes.
-  // If we get an unexpected char, reset our state and clear any accumulated arguments. But we want to resync with the
-  // start of the next possible message as soon as possible. So, after an error we set the state back to SYNC to begin
-  // waiting for a new packet.  But if the error byte itself was a sync byte (matches our address), then we should
-  // already advance to SYNC2.
+  // If we get an unexpected char, reset our state and clear any accumulated
+  // arguments. But we want to resync with the start of the next possible
+  // message as soon as possible. So, after an error we set the state back to
+  // SYNC to begin waiting for a new packet.  But if the error byte itself was a
+  // sync byte (matches our address), then we should already advance to SYNC2.
   // returns "false" to simplify returning from "put"
   bool error(unsigned char ch) {
     reset();

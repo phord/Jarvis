@@ -1,14 +1,12 @@
-#include <Ticker.h>
-
+#include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
-#include <ArduinoOTA.h>
 
 #include "local-config.h"
 #include "src/JarvisDesk.h"
-#include "src/TelnetLogger.h"
 #include "src/Ota.h"
+#include "src/TelnetLogger.h"
 
 #include "AdafruitIO_WiFi.h"
 const int LED_PIN = LED_BUILTIN;
@@ -32,7 +30,7 @@ void setup() {
   jarvis_sub->onMessage("preset", handlePreset);
 
   flash(0, 0.5);
-  while(io.status() < AIO_CONNECTED) {
+  while (io.status() < AIO_CONNECTED) {
     delay(100);
   }
 
@@ -42,7 +40,6 @@ void setup() {
 
   Log.begin();
   jarvis_sub->get();
-
 }
 
 void loop() {
@@ -56,12 +53,10 @@ void loop() {
 
   // Run the OTA Updater Service
   ota.loop();
-
 }
 
 // Handle messages from AdafruitIO
-void handlePreset(AdafruitIO_Data *data)
-{
+void handlePreset(AdafruitIO_Data *data) {
   Log.println(">MSG: ", data->feedName(), "=", data->toString());
 
   auto preset = data->toInt();

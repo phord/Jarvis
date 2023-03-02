@@ -1,12 +1,13 @@
-#include <Arduino.h>
-#include <ESP8266WiFi.h>
+#include "Arduino.h"
+
 #include "AdafruitIO_WiFi.h"
+#include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
 
 #include "JarvisDesk.h"
+#include "ProtocolFully.h"
 #include "TelnetLogger.h"
 #include "jarvis_pinouts.h"
-#include "ProtocolFully.h"
 
 extern AdafruitIO_WiFi io;
 
@@ -35,37 +36,31 @@ struct one_shot_timer {
   }
 
   // Timer is set and has not triggered (will trigger)
-  bool pending() {
-    return t && !trigger();
-  }
+  bool pending() { return t && !trigger(); }
 
   // Timer is not set or has expired (will trigger)
-  bool expired() {
-    return !pending();
-  }
+  bool expired() { return !pending(); }
 
   // Timer is set (won't trigger)
-  bool active() {
-    return !!t;
-  }
+  bool active() { return !!t; }
 
   unsigned long t = 0;
 };
 
 class JarvisDesk_impl {
-  public:
+public:
   void begin() {
     jarvis = io.group("jarvis");
     if (is_pin_connected(DTX))
-        deskSerial.begin(9600);
+      deskSerial.begin(9600);
     if (is_pin_connected(HTX))
-        hsSerial.begin(9600);
+      hsSerial.begin(9600);
 
     // Disable pullups turned on by espSoftwareSerial library
     if (is_pin_connected(DTX))
-        pinMode(DTX, INPUT);
+      pinMode(DTX, INPUT);
     if (is_pin_connected(HTX))
-        pinMode(HTX, INPUT);
+      pinMode(HTX, INPUT);
     jarvis->get();
   }
 
@@ -76,7 +71,7 @@ class JarvisDesk_impl {
     //-- Manage any pending preset presses
     if (pending_preset) {
       if (is_moving()) {
-        if (!pending_stop)  {
+        if (!pending_stop) {
           // Press the wake sequence once to try to stop our motion
           latch_pin(HS0);
           latch_pin(HS3);
@@ -88,8 +83,8 @@ class JarvisDesk_impl {
         latch_timer.reset();
         pending_preset = 0;
       }
-    }
-    else pending_stop = false;
+    } else
+      pending_stop = false;
 
     if (latch_timer.trigger()) {
       unlatch();
@@ -100,17 +95,19 @@ class JarvisDesk_impl {
   }
 
   bool goto_preset(int p) {
-    if (!p || p >4) return false;
-    if (p == preset) return false;
+    if (!p || p > 4)
+      return false;
+    if (p == preset)
+      return false;
     pending_preset = p;
     return true;
   }
 
   bool readPin(int pin) {
-      if (is_pin_connected(pin)) {
-          return digitalRead(pin);
-      }
-      return true;     // pretend NC pins are pulled up
+    if (is_pin_connected(pin)) {
+      return digitalRead(pin);
+    }
+    return true; // pretend NC pins are pulled up
   }
 
   JarvisMessage getMessage() {
@@ -123,12 +120,11 @@ class JarvisDesk_impl {
     return static_cast<JarvisMessage>(btn);
   }
 
-  bool is_moving() {
-    return height_changed.pending();
-  }
+  bool is_moving() { return height_changed.pending(); }
 
   void set_preset(unsigned char p) {
-    if (preset == p) return;
+    if (preset == p)
+      return;
     preset = p;
 
     // publish update to AdafruitIO
@@ -143,7 +139,8 @@ class JarvisDesk_impl {
     }
 
     h = Util::to_mm(h);
-    if (height == h) return;
+    if (height == h)
+      return;
     height = h;
     height_changed.reset(700);
 
@@ -165,9 +162,9 @@ class JarvisDesk_impl {
   unsigned char preset = 0;
 
   // Timer for last height change (to detect movement)
-  one_shot_timer height_changed;    // detect active movement
-  one_shot_timer latch_timer;       // unlatch a momentary button press
-  one_shot_timer io_timer;          // prevent overloading AdafruitIO
+  one_shot_timer height_changed; // detect active movement
+  one_shot_timer latch_timer;    // unlatch a momentary button press
+  one_shot_timer io_timer;       // prevent overloading AdafruitIO
 
   bool io_pending = false;
 
@@ -180,19 +177,19 @@ private:
 
   void latch_pin(int pin) {
     if (is_pin_connected(pin)) {
-        pinMode(pin, OUTPUT);
-        digitalWrite(pin, LOW);
+      pinMode(pin, OUTPUT);
+      digitalWrite(pin, LOW);
     }
   }
 
   void unlatch_pin(int pin) {
     if (is_pin_connected(pin)) {
-        pinMode(pin, INPUT);
-        digitalWrite(pin, HIGH);
+      pinMode(pin, INPUT);
+      digitalWrite(pin, HIGH);
     }
   }
 
-  void io_set(const char * field, unsigned long value) {
+  void io_set(const char *field, unsigned long value) {
     Log.println("io_set: ", field, "=", value);
 
     io_pending = true;
@@ -221,8 +218,7 @@ private:
     return false;
   }
 
-  void unlatch()
-  {
+  void unlatch() {
     unlatch_pin(HS0);
     unlatch_pin(HS1);
     unlatch_pin(HS2);
@@ -243,66 +239,57 @@ private:
     if (preset & 8) latch_pin(HS3);
   }
 
-  #define CONTROLLER    0xF2
-  #define HANDSET       0xF1
+#define CONTROLLER 0xF2
+#define HANDSET 0xF1
 
   ProtocolFully deskPacket = {CONTROLLER};
   ProtocolFully hsPacket = {HANDSET};
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
-      static int msg = 0;
+    static int msg = 0;
 
-      auto m = getMessage();
-      if ( m != msg) {
-        msg = m;
-        Log.println("Buttons: ", msg);
+    auto m = getMessage();
+    if (m != msg) {
+      msg = m;
+      Log.println("Buttons: ", msg);
+    }
+    if (is_pin_connected(DTX)) {
+      while (deskSerial.available()) {
+        auto ch = deskSerial.read();
+        Log.print("<");
+        Log.print_hex(ch);
+        Log.print(">");
+        if (deskPacket.put(ch)) {
+          deskPacket.decode();
+          Log.println();
+        }
       }
-      if (is_pin_connected(DTX)) {
-          while (deskSerial.available()) {
-              auto ch = deskSerial.read();
-              Log.print("<");
-              Log.print_hex(ch);
-              Log.print(">");
-              if (deskPacket.put(ch)) {
-                  deskPacket.decode();
-                  Log.println();
-              }
-          }
-      }
+    }
 
-      if (is_pin_connected(HTX)) {
-          while (hsSerial.available()) {
-              auto ch = hsSerial.read();
-              Log.print("{");
-              Log.print_hex(ch);
-              Log.print("}");
-              if (hsPacket.put(ch)) {
-                  hsPacket.decode();
-                  Log.println();
-              }
-          }
+    if (is_pin_connected(HTX)) {
+      while (hsSerial.available()) {
+        auto ch = hsSerial.read();
+        Log.print("{");
+        Log.print_hex(ch);
+        Log.print("}");
+        if (hsPacket.put(ch)) {
+          hsPacket.decode();
+          Log.println();
+        }
       }
+    }
   }
-
 };
 
 //-- JarvisDesk API interface
-JarvisDesk::JarvisDesk() {
-  jarvis = new JarvisDesk_impl();
-}
+JarvisDesk::JarvisDesk() { jarvis = new JarvisDesk_impl(); }
 
-JarvisDesk::~JarvisDesk() {
-  delete jarvis;
-}
+JarvisDesk::~JarvisDesk() { delete jarvis; }
 
-void JarvisDesk::begin() {
-  jarvis->begin();
-}
+void JarvisDesk::begin() { jarvis->begin(); }
 
-void JarvisDesk::run() {
-  jarvis->run();
-}
+void JarvisDesk::run() { jarvis->run(); }
 
 void JarvisDesk::report() {
   Log.println("Height: ", jarvis->height);
@@ -310,18 +297,12 @@ void JarvisDesk::report() {
   Log.println("Keys: ", jarvis->getMessage());
 }
 
-void JarvisDesk::goto_preset(int p) {
-  jarvis->goto_preset(p);
-}
+void JarvisDesk::goto_preset(int p) { jarvis->goto_preset(p); }
 
-void JarvisDesk::set_preset(unsigned char p) {
-    jarvis->set_preset(p);
-}
+void JarvisDesk::set_preset(unsigned char p) { jarvis->set_preset(p); }
 
-void JarvisDesk::set_height(unsigned int h) {
-    jarvis->set_height(h);
-}
+void JarvisDesk::set_height(unsigned int h) { jarvis->set_height(h); }
 
 void JarvisDesk::program_preset(unsigned memset) {
-    jarvis->program_preset(memset);
+  jarvis->program_preset(memset);
 }
