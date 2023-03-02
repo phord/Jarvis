@@ -13,6 +13,8 @@ public:
   void run();
   void report();
   void goto_preset(int p);
+  void reset(int duration); // reset and relevel the desk
+  void press_memory(int duration);
 
   // Desk reactions for Protocols
 

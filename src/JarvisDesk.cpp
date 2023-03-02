@@ -6,6 +6,7 @@
 
 #include "JarvisDesk.h"
 #include "ProtocolFully.h"
+#include "ProtocolUplift.h"
 #include "TelnetLogger.h"
 #include "jarvis_pinouts.h"
 
@@ -73,10 +74,8 @@ public:
       if (is_moving()) {
         if (!pending_stop) {
           // Press the wake sequence once to try to stop our motion
-          latch_pin(HS0);
-          latch_pin(HS3);
+          press_memory(30);
           pending_stop = true;
-          latch_timer.reset(30);
         }
       } else {
         latch(pending_preset);
@@ -94,6 +93,15 @@ public:
     io_send();
   }
 
+  void press_memory(int duration = 30) {
+#if not defined(JCB35N2PA32V2) // JCB35N2PA32V2 doesn't use this line when pressing memory
+    latch_pin(HS0);
+#endif
+    latch_pin(HS3);
+    latch_timer.reset(duration);
+    Log.println("Pressing memory for ", duration, "ms");
+  }
+
   bool goto_preset(int p) {
     if (!p || p > 4)
       return false;
@@ -101,6 +109,13 @@ public:
       return false;
     pending_preset = p;
     return true;
+  }
+
+  void reset(int duration = 5000) {
+    // Press and hold down for duration default 5s
+    latch_pin(HS0);
+    latch_timer.reset(duration);
+    Log.println("Starting reset");
   }
 
   bool readPin(int pin) {
@@ -139,8 +154,9 @@ public:
     }
 
     h = Util::to_mm(h);
-    if (height == h)
-      return;
+    if (height == h || h < MIN_HEIGHT || h > MAX_HEIGHT)
+      return; // if out of range, ignore it
+
     height = h;
     height_changed.reset(700);
 
@@ -238,12 +254,17 @@ private:
     if (preset & 4) latch_pin(HS2);
     if (preset & 8) latch_pin(HS3);
   }
-
+#if defined(JCB35N2PA32V2)
+#define CONTROLLER 0x01
+#define HANDSET 0xFF // unused
+  ProtocolUplift deskPacket = {CONTROLLER};
+  ProtocolUplift hsPacket = {HANDSET};
+#else
 #define CONTROLLER 0xF2
 #define HANDSET 0xF1
-
   ProtocolFully deskPacket = {CONTROLLER};
   ProtocolFully hsPacket = {HANDSET};
+#endif
 
   // Decode the serial stream from the desk controller
   void decode_serial() {
@@ -262,6 +283,7 @@ private:
         Log.print(">");
         if (deskPacket.put(ch)) {
           deskPacket.decode();
+          deskPacket.reset();
           Log.println();
         }
       }
@@ -290,6 +312,7 @@ JarvisDesk::~JarvisDesk() { delete jarvis; }
 void JarvisDesk::begin() { jarvis->begin(); }
 
 void JarvisDesk::run() { jarvis->run(); }
+void JarvisDesk::reset(int duration) { jarvis->reset(duration); }
 
 void JarvisDesk::report() {
   Log.println("Height: ", jarvis->height);
@@ -305,4 +328,8 @@ void JarvisDesk::set_height(unsigned int h) { jarvis->set_height(h); }
 
 void JarvisDesk::program_preset(unsigned memset) {
   jarvis->program_preset(memset);
+}
+
+void JarvisDesk::press_memory(int duration) {
+  jarvis->press_memory(duration);
 }

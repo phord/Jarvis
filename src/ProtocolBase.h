@@ -1,3 +1,4 @@
+#pragma once
 // Protocol base class and helper utilities
 #include <Arduino.h>    // vector
 
