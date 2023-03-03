@@ -274,7 +274,7 @@ Smart handset sends a `NULL (0x00)` byte on first startup.  If no response is re
 desk controller, it sends a 230ms BREAK signal followed by another `NULL` byte. If still no
 response is received, it begins sending `HANDSET(0x29)` repeatedly.
 
-## Known Commands
+## Known Commands (Handset)
 
 _Note: I don't know any official names for these commands, so I made these up myself._
 _Any mistakes here about the command usage or meaning are mine._
@@ -284,11 +284,6 @@ _All transmitted byte values are given in hex._
 | Name      | CMD  | Desk/HS | Params | Description
 | --------- | ---- | ------- | ------ | ----------------------------------------
 | RAISE     |  01  |   H     |    0   | Raise desk by one step
-| HEIGHT    |  01  |   D     |    3   | Height report; P0=4 (mm?)
-|           |      |         |        |   {P0,P1} = height in mm or tenths of inches
-|           |      |         |        |   P2 = ??? (0x7 or 0xF seen so far)  Not units
-|           |      |         |        |   Height from 240..530 is in inches
-|           |      |         |        |   Height from 650..1290 is in mm
 |           |      |         |        |
 | LOWER     |  02  |   H     |    0   | Lower desk by one step
 |           |      |         |        |
@@ -296,24 +291,17 @@ _All transmitted byte values are given in hex._
 | PROGMEM\_2 |  04  |   H     |    0   | Set memory position 2 to current height
 |           |      |         |        |
 | MOVE\_1   |  05  |   H     |    0   | Move desk to memory position 1
-|           |      |         |        |
-| UNKNOWN\_05 |  05  |   D     |    2   | Unknown response to [08]. P0 and P1 have been observed as 00 00 or FF FF
-|           |      |         |        |
 | MOVE\_2   |  06  |   H     |    0   | Move desk to memory position 2
-|           |      |         |        |
-| UNKNOWN\_06 |  06  |   D     |    1   | Unknown response to [09]. P0 has been observed as 01
 |           |      |         |        |
 | SETTINGS  |  07  |   H     |    0   | Request all memory heights and settings;
 |           |      |         |        |   On RJ-45, desk will respond with [25] [26] [27] [28] [0E] [19] [17] [1D] and [01]
 |           |      |         |        |   On RJ-12, desk will respond with [25] [26] [27] [28] and [01]
 |           |      |         |        |
-| UNKNOWN\_07 |  07  |   D     |    4   | Unknown response to [0C]. Params have been observed as 05 14 02 8A
-|           |      |         |        |
 | UNKNOWN\_08 |  08  |   H     |    0   | Unknown. Desk will respond with [05]
 |           |      |         |        |
 | UNKNOWN\_09 |  09  |   H     |    0   | Unknown. Desk will respond with [06]
 |           |      |         |        |
-| UNKNOWN\_0C |  0C  |   H     |    0   | Unknown. Desk will respond with [07]
+| UNKNOWN\_0C |  0C  |   H     |    0   | Maybe: Request physical limits of motion. Desk will respond with [07]
 |           |      |         |        |
 | UNITS     |  0E  |   H     |    1   | Set units to cm/inches
 |           |      |         |        |   P0=0x00  Set units to CM
@@ -324,7 +312,6 @@ _All transmitted byte values are given in hex._
 |           |      |         |        |   P0=0x01  Constant touch mode
 |           |      |         |        |
 | UNKNOWN\_1C |  1C  |   H     |    0   | Unknown. Desk will respond with [1C]
-|           |  1C  |   D     |    1   | Unknown response to [1C]. P0 has been observed as 0A
 |           |      |         |        |
 | COLL\_SENS |  1D  |   H     |    1   | Set anti-collision sensitivity  (Sent 1x; no repeats)
 |           |      |         |        |   P0=0x01  High
@@ -332,41 +319,95 @@ _All transmitted byte values are given in hex._
 |           |      |         |        |   P0=0x03  Low
 |           |      |         |        |
 | UNKNOWN\_1F |  1F  |   H     |    0   | Unknown. Desk will respond with [1F]
-|           |      |   D     |    1   | Unknown response to [1F]. P0 has been observed as 00
 |           |      |         |        |
 | LIMITS    |  20  |   H     |    0   | Request limit report, desk will respond with [20] and if set [21] and [22]
-|           |  20  |   D     |    1   | Report which limits are set; response to [20] through [23]
-|           |      |         |        |   P0=0x00  "Min/max cleared"
-|           |      |         |        |   P0=0x01  "Only max-height set"
-|           |      |         |        |   P0=0x10  "Only min-height set"
-|           |      |         |        |   P0=0x11  "Min and max set"
 |           |      |         |        |
 | SET\_MAX   |  21  |   H     |    0   | Set max height; Sets max-height to current height
-|           |  21  |   D     |    2   | Report max-height; [P0,P1] = max-height
 |           |      |         |        |
 | SET\_MIN   |  22  |   H     |    0   | Set min height; Sets min-height to current height
-|           |  22  |   D     |    2   | Report min-height; [P0,P1] = min-height
 |           |      |         |        |
 | LIMIT\_CLR |  23  |   H     |    1   | Clear min/max height
 |           |      |         |        |   P0=0x01  Clear Max-height
 |           |      |         |        |   P0=0x02  Clear Min-height
 |           |      |         |        |
-| LIMIT\_STOP|  23  |   D     |    1   | Min/Max reached. Not sent on RJ-12.
-|           |      |         |        |   P0=0x01  "Max-height reached"
-|           |      |         |        |   P0=0x02  "Min-height reached"
-|           |      |         |        |
 | PROGMEM\_3 |  25  |   H     |    0   | Set memory position 3 to current height
 | PROGMEM\_4 |  26  |   H     |    0   | Set memory position 4 to current height
 |           |      |         |        |
-| WAKE      |  29  |   H     |    0   | Poll message sent when desk doesn't respond to BREAK messages
+| MOVE\_3   |  27  |   H     |    0   | Move desk to memory position 3
+| MOVE\_4   |  28  |   H     |    0   | Move desk to memory position 4
 |           |      |         |        |
-| RESET     |  40  |   D     |    0   | Indicates desk in RESET mode; Displays "RESET"
+| WAKE      |  29  |   H     |    0   | Poll message sent when desk doesn't respond to BREAK messages
 |           |      |         |        |
 | CALIBRATE |  91  |   H     |    0   | Height calibration (Repeats 2x)
 |           |      |         |        |   Desk must be at lowest position
 |           |      |         |        |   Desk enters RESET mode after this
 |           |      |         |        |
-| REP\_PRESET|  92  |   D     |    1   | Moving to Preset location
+
+## Known Responses (Desk)
+
+_Note: I don't know any official names for these commands, so I made these up myself._
+_Any mistakes here about the command usage or meaning are mine._
+_All transmitted byte values are given in hex._
+
+
+| Name      | CMD  | Desk/HS | Params | Description
+| --------- | ---- | ------- | ------ | ----------------------------------------
+| HEIGHT    |  01  |   D     |    3   | Height report; P0=4 (mm?)
+|           |      |         |        |   {P0,P1} = height in mm or tenths of inches
+|           |      |         |        |   P2 = ??? (0x7 or 0xF seen so far)  Not units
+|           |      |         |        |   Height from 240..530 is in inches
+|           |      |         |        |   Height from 650..1290 is in mm
+|           |      |         |        |
+| UNKNOWN\_05 |  05  |   D     |    2   | Unknown response to [08]. P0 and P1 have been observed as 00 00 or FF FF
+|           |      |         |        |
+| UNKNOWN\_06 |  06  |   D     |    1   | Unknown response to [09]. P0 has been observed as 01
+|           |      |         |        |
+| UNKNOWN\_07 |  07  |   D     |    4   | Maybe: Physical limits of motion. Response to [0C].
+|           |      |         |        | {P0,P1} = upper limit, {P2,P3} = lower limit (in mm)
+|           |      |         |        | Params have been observed as 05 14 02 8A, which would be 1300mm, 650mm
+|           |      |         |        |
+| UNITS     |  0E  |   D     |    1   | Report units setting
+|           |      |         |        |   P0=0x00  Units set to CM
+|           |      |         |        |   P0=0x01  Units set to IN
+|           |      |         |        |
+| UNKNOWN\_17 |  17  |   D     |    1   | Unknown response to [07]. P0 has been observed as 01
+|           |      |         |        |
+| MEM\_MODE  |  19  |   D     |    1   | Report memory mode
+|           |      |         |        |   P0=0x00  One-touch mode
+|           |      |         |        |   P0=0x01  Constant touch mode
+|           |      |         |        |
+| UNKNOWN\_1C |  1C  |   D     |    1   | Unknown response to [1C]. P0 has been observed as 0A
+|           |      |         |        |
+| COLL\_SENS |  1D  |   D     |    1   | Report anti-collision sensitivity
+|           |      |         |        |   P0=0x01  High
+|           |      |         |        |   P0=0x02  Medium
+|           |      |         |        |   P0=0x03  Low
+|           |      |         |        |
+| UNKNOWN\_1F |  1F  |   D     |    1   | Unknown response to [1F]. P0 has been observed as 00
+|           |      |         |        |
+| LIMITS    |  20  |   D     |    1   | Report which limits are set; response to [20] through [23]
+|           |      |         |        |   P0=0x00  "Min/max cleared"
+|           |      |         |        |   P0=0x01  "Only max-height set"
+|           |      |         |        |   P0=0x10  "Only min-height set"
+|           |      |         |        |   P0=0x11  "Min and max set"
+|           |      |         |        |
+| SET\_MAX  |  21  |   D     |    2   | Report max-height; [P0,P1] = max-height
+|           |      |         |        |
+| SET\_MIN  |  22  |   D     |    2   | Report min-height; [P0,P1] = min-height
+|           |      |         |        |
+| LIMIT\_STOP|  23  |   D     |    1   | Min/Max reached. Not sent on RJ-12.
+|           |      |         |        |   P0=0x01  "Max-height reached"
+|           |      |         |        |   P0=0x02  "Min-height reached"
+|           |      |         |        |
+| POSITION\_1 |  25  |   D     |    2   | Memory position 1 height. Response to [07].
+| POSITION\_2 |  26  |   D     |    2   | Memory position 2 height. Response to [07].
+| POSITION\_3 |  27  |   D     |    2   | Memory position 3 height. Response to [07].
+| POSITION\_4 |  28  |   D     |    2   | Memory position 4 height. Response to [07].
+|           |      |         |        |   {P0, P1} = height in mm or tenths of inches
+|           |      |         |        |
+| RESET     |  40  |   D     |    0   | Indicates desk in RESET mode; Displays "RESET"
+|           |      |         |        |
+| REP\_PRESET|  92  |   D     |    1   | Moving to Preset location. Not sent on RJ-12.
 |           |      |         |        |   P0=[4,8,10,20] mapping to presets [1,2,3,4]
 
 ## Height report
