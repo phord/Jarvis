@@ -136,7 +136,8 @@ desk controller (model: JCB35N2) but has the same electrical interface. However 
 a different protocol. You can find some details in the [JCB35N2 controller protocol discussion](https://github.com/phord/Jarvis/discussions/4).
 It's a bit exciting that the basic and advanced models both seem to support both protocols in some form, but so far
 I don't know how to switch between them on either controller.
-## Physical interface
+
+## Physical interface (RJ-45)
 
 The interface from the handset to the controller is via an RJ-45 8-pin connector (like an ethernet
 connector). The pins in the RJ-45 jack are numbered 1 to 8.
@@ -166,6 +167,25 @@ Following are their usage on the desk:
 
 _In this capture, I pressed "Memory" to wake the screen up, and then 3 to move the desk to position 3._
 
+## Physical interface (RJ-12)
+
+Some controllers such as the Jiecang JCB36N2CA fitted in recent Fully Jarvis models also offer an RJ-12 6-pin
+connector (like a telephone jack), which is used for an [optional Bluetooth add-on](https://fccid.io/2ANKDJCP35NBLT/Internal-Photos/Internal-Photos-3727739).
+Of the 6-pin connector, only the center 4 pins are required for the Bluetooth add-on, meaning an RJ-11 connector,
+which is physically idential but has only 4 conductors populated, will work just fine.
+
+The pins in the RJ-12 jack are numbered 1 to 6. Following are their usage on the desk:
+
+| Pin | Label | Description
+| --- | ----- | --------------------------------------
+|  1  |  NC   | (unpopulated in Bluetooth add-on, pulled high by controller)
+|  2  |  GND  | Ground
+|  3  |  DTX  | Serial control messages from controller to handset
+|  4  |  VCC  | Vcc (5vdc) supply from desk controller
+|  5  |  HTX  | Serial control messages from handset to controller
+|  6  |  NC   | (unpopulated in Bluetooth add-on, pulled high by controller)
+
+
 ## Interfacing with 5 volts
 
 The desk provides 5v pullups on all six signal lines. A "mark" is signaled by pulling the line low.
@@ -189,7 +209,7 @@ lines' inverted logical signals, you will find a "button number" between 0 and 7
 
 Zero means no button is being pressed.  This is "open".
 
-Note: HS0+HS3 is used to wake up the controller to send height information.
+Note: HS3 seems to be a special line used only for Memory Button signaling.
 
          Down  Up  1  2  3  4  M
     HS3                        X
@@ -207,7 +227,7 @@ Translated into binary, these buttons send these codes:
 | 2      |   4   |
 | 3      |   5   |
 | 4      |   6   |
-| *any*  |   9   |  Sent when display is touched while asleep. Always sent as two 30ms pulses.
+| M      |   9   |  (always sent as two 30ms pulses)
 
 ## UART protocol
 
@@ -221,7 +241,7 @@ sends data on DTX; the handset sends data on HTX. Command packets are the same f
 | -------- | ------- | ---------------------------------
 | ADDRESS  |      2  | Same value in both bytes; 0xF1 for Handset, 0xF2 for controller
 | COMMAND  |      1  | See *KNOWN COMMANDS*
-| LENGTH   |      1  | Length of PARAMS bytes that follow (0 to 3 (??))
+| LENGTH   |      1  | Length of PARAMS bytes that follow (0 to 4 (??))
 | PARAMS   | LENGTH  | Omitted if LENGTH=0
 | CHECKSUM |      1  | 8-bit sum of {COMMAND, LENGTH, PARAMS}
 | EOM 0x7E |      1  | End of message (0x7E)
@@ -260,18 +280,40 @@ _Note: I don't know any official names for these commands, so I made these up my
 _Any mistakes here about the command usage or meaning are mine._
 _All transmitted byte values are given in hex._
 
+
 | Name      | CMD  | Desk/HS | Params | Description
 | --------- | ---- | ------- | ------ | ----------------------------------------
+| RAISE     |  01  |   H     |    0   | Raise desk by one step
 | HEIGHT    |  01  |   D     |    3   | Height report; P0=4 (mm?)
 |           |      |         |        |   {P0,P1} = height in mm or tenths of inches
 |           |      |         |        |   P2 = ??? (0x7 or 0xF seen so far)  Not units
 |           |      |         |        |   Height from 240..530 is in inches
 |           |      |         |        |   Height from 650..1290 is in mm
 |           |      |         |        |
+| LOWER     |  02  |   H     |    0   | Lower desk by one step
+|           |      |         |        |
 | PROGMEM\_1 |  03  |   H     |    0   | Set memory position 1 to current height
 | PROGMEM\_2 |  04  |   H     |    0   | Set memory position 2 to current height
-| PROGMEM\_3 |  25  |   H     |    0   | Set memory position 3 to current height
-| PROGMEM\_4 |  26  |   H     |    0   | Set memory position 4 to current height
+|           |      |         |        |
+| MOVE\_1   |  05  |   H     |    0   | Move desk to memory position 1
+|           |      |         |        |
+| UNKNOWN\_05 |  05  |   D     |    2   | Unknown response to [08]. P0 and P1 have been observed as 00 00 or FF FF
+|           |      |         |        |
+| MOVE\_2   |  06  |   H     |    0   | Move desk to memory position 2
+|           |      |         |        |
+| UNKNOWN\_06 |  06  |   D     |    1   | Unknown response to [09]. P0 has been observed as 01
+|           |      |         |        |
+| SETTINGS  |  07  |   H     |    0   | Request all memory heights and settings;
+|           |      |         |        |   On RJ-45, desk will respond with [25] [26] [27] [28] [0E] [19] [17] [1D] and [01]
+|           |      |         |        |   On RJ-12, desk will respond with [25] [26] [27] [28] and [01]
+|           |      |         |        |
+| UNKNOWN\_07 |  07  |   D     |    4   | Unknown response to [0C]. Params have been observed as 05 14 02 8A
+|           |      |         |        |
+| UNKNOWN\_08 |  08  |   H     |    0   | Unknown. Desk will respond with [05]
+|           |      |         |        |
+| UNKNOWN\_09 |  09  |   H     |    0   | Unknown. Desk will respond with [06]
+|           |      |         |        |
+| UNKNOWN\_0C |  0C  |   H     |    0   | Unknown. Desk will respond with [07]
 |           |      |         |        |
 | UNITS     |  0E  |   H     |    1   | Set units to cm/inches
 |           |      |         |        |   P0=0x00  Set units to CM
@@ -281,30 +323,40 @@ _All transmitted byte values are given in hex._
 |           |      |         |        |   P0=0x00  One-touch mode
 |           |      |         |        |   P0=0x01  Constant touch mode
 |           |      |         |        |
+| UNKNOWN\_1C |  1C  |   H     |    0   | Unknown. Desk will respond with [1C]
+|           |  1C  |   D     |    1   | Unknown response to [1C]. P0 has been observed as 0A
+|           |      |         |        |
 | COLL\_SENS |  1D  |   H     |    1   | Set anti-collision sensitivity  (Sent 1x; no repeats)
 |           |      |         |        |   P0=0x01  High
 |           |      |         |        |   P0=0x02  Medium
 |           |      |         |        |   P0=0x03  Low
 |           |      |         |        |
-| LIMIT\_RESP|  20  |   D     |    1   | Max-height set/cleared; response to [21];
+| UNKNOWN\_1F |  1F  |   H     |    0   | Unknown. Desk will respond with [1F]
+|           |      |   D     |    1   | Unknown response to [1F]. P0 has been observed as 00
+|           |      |         |        |
+| LIMITS    |  20  |   H     |    0   | Request limit report, desk will respond with [20] and if set [21] and [22]
+|           |  20  |   D     |    1   | Report which limits are set; response to [20] through [23]
 |           |      |         |        |   P0=0x00  "Min/max cleared"
-|           |      |         |        |   P0=0x01  "Max-height set"
-|           |      |         |        |   P0=0x10  "Min-height set"
+|           |      |         |        |   P0=0x01  "Only max-height set"
+|           |      |         |        |   P0=0x10  "Only min-height set"
+|           |      |         |        |   P0=0x11  "Min and max set"
 |           |      |         |        |
 | SET\_MAX   |  21  |   H     |    0   | Set max height; Sets max-height to current height
 |           |  21  |   D     |    2   | Report max-height; [P0,P1] = max-height
-|           |      |         |        |   Q: Can we set max-height by giving params?
 |           |      |         |        |
 | SET\_MIN   |  22  |   H     |    0   | Set min height; Sets min-height to current height
 |           |  22  |   D     |    2   | Report min-height; [P0,P1] = min-height
 |           |      |         |        |
 | LIMIT\_CLR |  23  |   H     |    1   | Clear min/max height
-|           |      |         |        |   P0=0x01  Max-height cleared
-|           |      |         |        |   P0=0x02  Min-height cleared
+|           |      |         |        |   P0=0x01  Clear Max-height
+|           |      |         |        |   P0=0x02  Clear Min-height
 |           |      |         |        |
-| LIMIT\_STOP|  23  |   D     |    1   | Min/Max reached
+| LIMIT\_STOP|  23  |   D     |    1   | Min/Max reached. Not sent on RJ-12.
 |           |      |         |        |   P0=0x01  "Max-height reached"
 |           |      |         |        |   P0=0x02  "Min-height reached"
+|           |      |         |        |
+| PROGMEM\_3 |  25  |   H     |    0   | Set memory position 3 to current height
+| PROGMEM\_4 |  26  |   H     |    0   | Set memory position 4 to current height
 |           |      |         |        |
 | WAKE      |  29  |   H     |    0   | Poll message sent when desk doesn't respond to BREAK messages
 |           |      |         |        |
