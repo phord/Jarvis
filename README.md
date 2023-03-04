@@ -459,3 +459,13 @@ Install using the ESP8266 Community package here: https://arduino.esp8266.com/st
 First time programming: Connect P2 to GND to start Oak in serial program mode
 
 Thereafter, use the OTA Software Upload described above.
+
+# Related projects
+
+These other projects also aim to decode the Jarvis and/or Uplift protocols.  Some of them got their start from
+this project, but they may have added more info and other desks since the time I wrote this.
+
+[Upsy Desky](https://github.com/tjhorner/upsy-desky) (originally [wifi standing desk controller](https://www.tindie.com/products/tjhorner/wifi-standing-desk-controller/))
+A [nice custom build](https://www.youtube.com/watch?v=DTJSREjWH7Y) by David Zhang.
+A [thread on integrating ESPHome](https://community.home-assistant.io/t/desky-standing-desk-esphome-works-with-desky-uplift-jiecang-assmann-others/383790/16) with Jarvis/Desky/Uplift, etc.
+[RMcGibbo's home build](https://github.com/rmcgibbo/Jarvis)
