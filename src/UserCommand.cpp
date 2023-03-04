@@ -43,5 +43,14 @@ bool execute(std::string & s) {
   if (cmd == "exit" || cmd == "quit")
     return false;
 
+  // TODO: Tokenize and lowercase command line; then parse out multiple arguments
+  if (cmd == "hs") {
+    LogHs.toggle();
+    Log.println("Handset protocol logging ", LogHs.is_enabled() ? "en" : "dis", "abled");
+  } else if (cmd == "desk") {
+    LogDesk.toggle();
+    Log.println("Desk protocol logging ", LogDesk.is_enabled() ? "en" : "dis", "abled");
+  }
+
   return true;
 }

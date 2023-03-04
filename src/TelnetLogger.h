@@ -85,3 +85,6 @@ private:
 
 extern TelnetServer LogServer;
 extern TelnetLogger Log;
+
+extern TelnetLogger LogHs;
+extern TelnetLogger LogDesk;

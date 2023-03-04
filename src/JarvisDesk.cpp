@@ -269,18 +269,18 @@ private:
     auto m = getMessage();
     if (m != msg) {
       msg = m;
-      Log.println("Buttons: ", msg);
+      LogHs.println("Buttons: ", msg);
     }
     if (is_pin_connected(DTX)) {
       while (deskSerial.available()) {
         auto ch = deskSerial.read();
-        Log.print("<");
-        Log.print_hex(ch);
-        Log.print(">");
+        LogDesk.print("<");
+        LogDesk.print_hex(ch);
+        LogDesk.print(">");
         if (deskPacket.put(ch)) {
           deskPacket.decode();
           deskPacket.reset();
-          Log.println();
+          LogDesk.println();
         }
       }
     }
@@ -288,12 +288,12 @@ private:
     if (is_pin_connected(HTX)) {
       while (hsSerial.available()) {
         auto ch = hsSerial.read();
-        Log.print("{");
-        Log.print_hex(ch);
-        Log.print("}");
+        LogHs.print("{");
+        LogHs.print_hex(ch);
+        LogHs.print("}");
         if (hsPacket.put(ch)) {
           hsPacket.decode();
-          Log.println();
+          LogHs.println();
         }
       }
     }

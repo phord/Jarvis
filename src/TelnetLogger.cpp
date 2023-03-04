@@ -6,6 +6,8 @@ WiFiServer telnetServer(23);
 
 TelnetServer LogServer;
 TelnetLogger Log(LogServer);
+TelnetLogger LogHs(LogServer, false);
+TelnetLogger LogDesk(LogServer, false);
 UserCommand cmd;
 
 void TelnetServer::begin() {
