@@ -31,6 +31,12 @@ public:
 private:
   WiFiClient serverClient;
 
+  unsigned shake_count;
+  unsigned shake_msg;
+
+  // Telnet connection options negotiation
+  bool handshake(unsigned ch);
+
   template<typename first_t, class ...Args>
   void print_raw(first_t const& arg, Args... args) {
     serverClient.print(arg);
