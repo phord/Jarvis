@@ -1,4 +1,5 @@
 #include "TelnetLogger.h"
+#include "UserCommand.h"
 
 // declare telnet server (do NOT put in setup())
 WiFiServer telnetServer(23);
@@ -27,7 +28,7 @@ void TelnetLogger::run() {
 
   while (serverClient.available()) { // get data from Client
     unsigned ch = serverClient.read();
-    // serverClient.print(ch, HEX);
-    // serverClient.print(" ");
-  }
+    if (!cmd.put(ch)) {
+    serverClient.stop();
+    }
 }
