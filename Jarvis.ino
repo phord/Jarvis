@@ -38,7 +38,7 @@ void setup() {
 
   ota.begin();
 
-  Log.begin();
+  LogServer.begin();
   jarvis_sub->get();
 }
 
@@ -49,7 +49,7 @@ void loop() {
   // run the Jarvis desk interface
   Jarvis.run();
 
-  Log.run();
+  LogServer.run();
 
   // Run the OTA Updater Service
   ota.loop();

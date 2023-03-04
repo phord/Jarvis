@@ -1,41 +1,19 @@
-#ifndef TelnetLogger_h
-#define TelnetLogger_h
-
+#pragma once
 #include <ESP8266WiFi.h>
 
-class TelnetLogger {
+class TelnetLogger;
+
+class TelnetServer {
 public:
-  // kluge
-  void print_hex(unsigned x) {
-    if (connected()) {
-      serverClient.print(x, HEX);
-    }
-  }
-
-  template<class ...Args>
-  void print(Args... args) {
-    if (connected()) {
-      print_raw(args...);
-    }
-  }
-
-  template<class ...Args>
-  void println(Args... args) {
-    print(args..., '\n');
-  }
-
   void begin();
   void run();
   bool connected();
 
-private:
-  WiFiClient serverClient;
-
-  unsigned shake_count;
-  unsigned shake_msg;
-
-  // Telnet connection options negotiation
-  bool handshake(unsigned ch);
+protected:
+  // kluge
+  void print_hex(unsigned x) {
+    serverClient.print(x, HEX);
+  }
 
   template<typename first_t, class ...Args>
   void print_raw(first_t const& arg, Args... args) {
@@ -53,8 +31,57 @@ private:
       serverClient.print(arg);
     print_raw(args...);
   }
+
+private:
+  WiFiClient serverClient;
+
+  unsigned shake_count;
+  unsigned shake_msg;
+
+  // Telnet connection options negotiation
+  bool handshake(unsigned ch);
+  friend TelnetLogger;
 };
 
-extern TelnetLogger Log;
+class TelnetLogger {
+public:
+  TelnetLogger(TelnetServer & srv, bool on = true) : server(srv), enabled(on) {}
 
-#endif
+  // kluge
+  void print_hex(unsigned x) {
+    if (connected()) {
+      server.print_hex(x);
+    }
+  }
+
+  template<class ...Args>
+  void print(Args... args) {
+    if (connected()) {
+      print_raw(args...);
+    }
+  }
+
+  template<class ...Args>
+  void println(Args... args) {
+    print(args..., '\n');
+  }
+
+  bool connected() { return enabled && server.connected(); }
+
+  void toggle() { enabled = !enabled; }
+  bool is_enabled() { return enabled; }
+  void enable() { enabled = true; }
+  void disable() { enabled = false; }
+
+private:
+  TelnetServer & server;
+  bool enabled;
+
+  template<class ...Args>
+  void print_raw(Args... args) {
+    server.print_raw(args...);
+  }
+};
+
+extern TelnetServer LogServer;
+extern TelnetLogger Log;

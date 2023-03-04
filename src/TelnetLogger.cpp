@@ -4,14 +4,16 @@
 // declare telnet server (do NOT put in setup())
 WiFiServer telnetServer(23);
 
-TelnetLogger Log;
+TelnetServer LogServer;
+TelnetLogger Log(LogServer);
+UserCommand cmd;
 
-void TelnetLogger::begin() {
+void TelnetServer::begin() {
   telnetServer.begin();
   telnetServer.setNoDelay(true);
 }
 
-bool TelnetLogger::connected() {
+bool TelnetServer::connected() {
   return serverClient && serverClient.connected();
 }
 
@@ -30,7 +32,7 @@ constexpr unsigned NOP = 241; //  No operation.
 // Negotiate the telnet connection parameters
 // Filters telnet commands and returns byte to be interpreted.
 // Returns false to pass char through as-was; true to filter (was a handshake)
-bool TelnetLogger::handshake(unsigned ch) {
+bool TelnetServer::handshake(unsigned ch) {
 
   if (shake_count == 0) {
     if (ch == IAC) {
