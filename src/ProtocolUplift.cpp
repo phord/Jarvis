@@ -18,9 +18,9 @@ enum command_byte {
 
   // CONTROLLER
   HEIGHT = 0x01, // Height report
-  ERROR = 0x02,  // Error reporting and desk lockout
-  RESET = 0x04,  // Indicates desk in RESET mode; Displays "RESET"/"ASR"
-  PRGM = 0x06, // Programming code. Used when memory is pressed and in start up.
+  ERROR  = 0x02,  // Error reporting and desk lockout
+  RESET  = 0x04,  // Indicates desk in RESET mode; Displays "RESET"/"ASR"
+  PRGM   = 0x06, // Programming code. Used when memory is pressed and in start up.
 };
 
 // returns true when a message is decoded and ready to parse in {cmd, argc,
@@ -86,11 +86,16 @@ void ProtocolUplift::decode() {
       Log.println("Error: unknown");
       return;
     }
-    if (argv[0] == 0 && argv[1] == 0x80)
-      Log.println("Desk Height Locked");
+    if (argv[0] == 0 ){
+        if(argv[1] == 0x80) // Desk is locked
+          Log.println("Desk Height Locked");
+        if(argv[1]) = 0x40) // E13 Leg uneven error? Not Documented by Uplift
+          Log.println("Error: E13");
+      }
 
-    if (argv[0] == 0x80 && argv[1] == 0)
+    if (argv[0] == 0x80 && argv[1] == 0) // E08
       Log.println("Error: E08");
+
 
     return;
 
